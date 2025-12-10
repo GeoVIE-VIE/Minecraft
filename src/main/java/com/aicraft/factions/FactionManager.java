@@ -54,9 +54,12 @@ public class FactionManager {
             if (name == null) continue;
 
             Faction faction = new Faction(name);
-            faction.setDescription((String) factionData.getOrDefault("description", ""));
 
-            String colorStr = (String) factionData.getOrDefault("color", "WHITE");
+            Object descObj = factionData.get("description");
+            faction.setDescription(descObj != null ? descObj.toString() : "");
+
+            Object colorObj = factionData.get("color");
+            String colorStr = colorObj != null ? colorObj.toString() : "WHITE";
             faction.setColorFromString(colorStr);
 
             // Set hostile factions
