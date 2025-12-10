@@ -147,15 +147,25 @@ public class AIManager {
             prompt.append("Current Mood: ").append(npc.getCurrentMood()).append("\n");
         }
 
+        // Add dialect instructions
+        Dialect dialect = npc.getDialect();
+        prompt.append("Speech Style: ").append(dialect.getName()).append("\n");
+
         prompt.append("\n=== ROLEPLAY RULES ===\n");
         prompt.append("1. Stay completely in character as ").append(npc.getName()).append("\n");
         prompt.append("2. Keep responses SHORT (1-3 sentences, like real game NPCs)\n");
         prompt.append("3. Reference your backstory and personality naturally\n");
         prompt.append("4. React based on your faction's relationship with the player\n");
         prompt.append("5. You can offer quests, trade, share rumors, or just chat\n");
-        prompt.append("6. Use medieval/fantasy speech patterns appropriate to your character\n");
+        prompt.append("6. ").append(dialect.getPrompt()).append("\n");
         prompt.append("7. If attacked or threatened, respond appropriately to your personality\n");
         prompt.append("8. DO NOT break character or mention being an AI\n");
+
+        // Special instructions for Cultists
+        if ("Cultists".equalsIgnoreCase(npc.getFaction())) {
+            prompt.append("9. You worship the god Geodjian. Be mysterious and try to subtly recruit the player.\n");
+            prompt.append("10. Never reveal your true intentions immediately. Be deceptive but intriguing.\n");
+        }
 
         if (conversationHistory != null && !conversationHistory.isEmpty()) {
             prompt.append("\n=== CONVERSATION HISTORY ===\n");

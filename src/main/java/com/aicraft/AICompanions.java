@@ -4,6 +4,7 @@ import com.aicraft.ai.AIManager;
 import com.aicraft.commands.*;
 import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.FactionManager;
+import com.aicraft.gui.QuestTrackerGUI;
 import com.aicraft.listeners.ChatListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
@@ -39,6 +40,7 @@ public class AICompanions extends JavaPlugin {
     private QuestManager questManager;
     private WanderingManager wanderingManager;
     private NPCSpawner npcSpawner;
+    private QuestTrackerGUI questTrackerGUI;
 
     @Override
     public void onEnable() {
@@ -142,7 +144,18 @@ public class AICompanions extends JavaPlugin {
     private void registerCommands() {
         getCommand("npc").setExecutor(new NPCCommand(this, npcManager, aiManager, factionManager));
         getCommand("faction").setExecutor(new FactionCommand(this, factionManager));
-        getCommand("quest").setExecutor(new QuestCommand(this, questManager));
+
+        // Initialize Quest GUI and wire it to the command
+        questTrackerGUI = new QuestTrackerGUI(this, questManager, npcManager);
+        QuestCommand questCommand = new QuestCommand(this, questManager);
+        questCommand.setQuestGUI(questTrackerGUI);
+        getCommand("quest").setExecutor(questCommand);
+
+        // Register quests alias
+        if (getCommand("quests") != null) {
+            getCommand("quests").setExecutor(questCommand);
+        }
+
         getCommand("aiconfig").setExecutor(new AIConfigCommand(this, aiManager));
     }
 

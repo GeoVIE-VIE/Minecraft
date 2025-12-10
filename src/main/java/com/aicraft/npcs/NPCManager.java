@@ -2,6 +2,7 @@ package com.aicraft.npcs;
 
 import com.aicraft.AICompanions;
 import com.aicraft.ai.AIManager;
+import com.aicraft.ai.Dialect;
 import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.Faction;
 import com.aicraft.factions.FactionManager;
@@ -110,8 +111,14 @@ public class NPCManager {
             npc.setFaction("Wanderers");
         }
 
-        // Set random personality
-        npc.setPersonality(PERSONALITIES[new Random().nextInt(PERSONALITIES.length)]);
+        // Set random personality based on faction
+        npc.setPersonality(getPersonalityForFaction(factionName));
+
+        // Assign dialect based on faction
+        npc.setDialect(Dialect.getForFaction(factionName));
+
+        // Configure behavior based on faction
+        configureFactionBehavior(npc, factionName);
 
         // Set location
         npc.setSpawnLocation(location);
@@ -126,7 +133,7 @@ public class NPCManager {
                 });
 
         // Set a temporary backstory until AI generates one
-        npc.setBackstory("A mysterious figure who keeps their past hidden...");
+        npc.setBackstory(getDefaultBackstoryForFaction(factionName, name));
 
         // Spawn the entity
         spawnEntity(npc);
@@ -136,6 +143,130 @@ public class NPCManager {
         database.saveNPC(npc);
 
         return npc;
+    }
+
+    /**
+     * Get appropriate personality for faction
+     */
+    private String getPersonalityForFaction(String faction) {
+        Random random = new Random();
+
+        if (faction == null) {
+            return PERSONALITIES[random.nextInt(PERSONALITIES.length)];
+        }
+
+        String[] factionPersonalities = switch (faction.toLowerCase()) {
+            case "cultists" -> new String[]{
+                    "Mysterious and cryptic, speaks in riddles about Geodjian",
+                    "Zealous believer, eager to convert others to the faith of Geodjian",
+                    "Soft-spoken and unsettling, hides dark secrets behind kind words",
+                    "Fanatical devotee who sees Geodjian's will in everything",
+                    "Seemingly normal but occasionally slips into strange prophecies"
+            };
+            case "bandits", "raiders" -> new String[]{
+                    "Ruthless and cunning, values only gold and power",
+                    "Brutal fighter with no mercy for the weak",
+                    "Sly opportunist always looking for the next score",
+                    "Former soldier turned to banditry, bitter and dangerous",
+                    "Wild and unpredictable, enjoys causing chaos"
+            };
+            case "guards" -> new String[]{
+                    "Dutiful protector, takes the job seriously",
+                    "Gruff veteran who has seen too many battles",
+                    "Honorable soldier following orders without question",
+                    "Suspicious of strangers, trusts no one easily",
+                    "Proud defender of the realm, eager to prove worth"
+            };
+            case "merchants" -> new String[]{
+                    "Shrewd businessperson, always looking for a deal",
+                    "Friendly trader with goods from exotic lands",
+                    "Cunning haggler who never gives a fair price willingly",
+                    "Jovial shopkeeper who loves to chat",
+                    "Mysterious merchant with unusual wares"
+            };
+            case "villagers" -> new String[]{
+                    "Simple farmer trying to make an honest living",
+                    "Friendly neighbor always ready to help",
+                    "Worried about recent dangers in the area",
+                    "Gossip who knows everyone's business",
+                    "Hard-working craftsperson proud of their trade"
+            };
+            case "wanderers" -> new String[]{
+                    "Mysterious traveler with stories from distant lands",
+                    "Weary pilgrim seeking something lost",
+                    "Adventurer between quests, looking for the next challenge",
+                    "Hermit who prefers solitude but is surprisingly knowledgeable",
+                    "Lost soul wandering without clear purpose"
+            };
+            default -> PERSONALITIES;
+        };
+
+        return factionPersonalities[random.nextInt(factionPersonalities.length)];
+    }
+
+    /**
+     * Configure NPC behavior based on faction
+     */
+    private void configureFactionBehavior(AINpc npc, String faction) {
+        if (faction == null) return;
+
+        switch (faction.toLowerCase()) {
+            case "cultists" -> {
+                npc.setCanWander(false); // Stay in dungeons
+                npc.setHostile(false); // Deceptive, not openly hostile
+                npc.setCanTrade(false);
+                npc.setCanGiveQuests(true); // Dark quests
+            }
+            case "bandits", "raiders" -> {
+                npc.setCanWander(true);
+                npc.setHostile(true); // Hostile to all
+                npc.setCanTrade(false);
+                npc.setCanGiveQuests(false);
+            }
+            case "guards" -> {
+                npc.setCanWander(false); // Stay at posts
+                npc.setHostile(false);
+                npc.setCanTrade(false);
+                npc.setCanGiveQuests(true);
+            }
+            case "merchants" -> {
+                npc.setCanWander(true); // Travel to sell goods
+                npc.setHostile(false);
+                npc.setCanTrade(true);
+                npc.setCanGiveQuests(true);
+            }
+            case "villagers" -> {
+                npc.setCanWander(false); // Stay in villages
+                npc.setHostile(false);
+                npc.setCanTrade(false);
+                npc.setCanGiveQuests(true);
+            }
+            case "wanderers" -> {
+                npc.setCanWander(true); // Always wandering
+                npc.setHostile(false);
+                npc.setCanTrade(false);
+                npc.setCanGiveQuests(true);
+            }
+        }
+    }
+
+    /**
+     * Get default backstory for faction
+     */
+    private String getDefaultBackstoryForFaction(String faction, String name) {
+        if (faction == null) {
+            return "A mysterious figure who keeps their past hidden...";
+        }
+
+        return switch (faction.toLowerCase()) {
+            case "cultists" -> name + " is a devoted follower of Geodjian, the All-Seeing. Their true purposes remain shrouded in mystery.";
+            case "bandits", "raiders" -> name + " turned to a life of crime after society abandoned them. They take what they need to survive.";
+            case "guards" -> name + " serves the realm faithfully, sworn to protect the innocent from those who would do harm.";
+            case "merchants" -> name + " travels the land seeking fortune through trade, always looking for the next profitable venture.";
+            case "villagers" -> name + " lives a simple life in the village, working hard and hoping for peaceful days ahead.";
+            case "wanderers" -> name + " roams the world without clear destination, gathering stories and wisdom along the way.";
+            default -> "A mysterious figure who keeps their past hidden...";
+        };
     }
 
     /**

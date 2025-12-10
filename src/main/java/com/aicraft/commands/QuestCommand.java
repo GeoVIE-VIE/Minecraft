@@ -1,9 +1,11 @@
 package com.aicraft.commands;
 
 import com.aicraft.AICompanions;
+import com.aicraft.gui.QuestTrackerGUI;
 import com.aicraft.quests.Quest;
 import com.aicraft.quests.QuestManager;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -22,10 +24,15 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
 
     private final AICompanions plugin;
     private final QuestManager questManager;
+    private QuestTrackerGUI questGUI;
 
     public QuestCommand(AICompanions plugin, QuestManager questManager) {
         this.plugin = plugin;
         this.questManager = questManager;
+    }
+
+    public void setQuestGUI(QuestTrackerGUI questGUI) {
+        this.questGUI = questGUI;
     }
 
     @Override
@@ -35,8 +42,13 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Default to GUI if no arguments
         if (args.length == 0) {
-            showHelp(player);
+            if (questGUI != null) {
+                questGUI.openGUI(player);
+            } else {
+                handleList(player);
+            }
             return true;
         }
 
@@ -46,6 +58,15 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
             case "list", "active" -> handleList(player);
             case "info" -> handleInfo(player, args);
             case "abandon" -> handleAbandon(player, args);
+            case "track" -> handleTrack(player, args);
+            case "gui", "menu", "journal" -> {
+                if (questGUI != null) {
+                    questGUI.openGUI(player);
+                } else {
+                    player.sendMessage(ChatColor.RED + "Quest GUI is not available.");
+                }
+            }
+            case "waypoint", "compass" -> handleWaypoint(player, args);
             default -> showHelp(player);
         }
 
@@ -54,12 +75,87 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
 
     private void showHelp(Player player) {
         player.sendMessage(ChatColor.GOLD + "═══════ Quest Commands ═══════");
+        player.sendMessage(ChatColor.YELLOW + "/quest" + ChatColor.GRAY + " - Open quest journal (GUI)");
         player.sendMessage(ChatColor.YELLOW + "/quest list" + ChatColor.GRAY + " - Show your active quests");
         player.sendMessage(ChatColor.YELLOW + "/quest info <number>" + ChatColor.GRAY + " - Show quest details");
+        player.sendMessage(ChatColor.YELLOW + "/quest track <number>" + ChatColor.GRAY + " - Track quest waypoint");
+        player.sendMessage(ChatColor.YELLOW + "/quest waypoint" + ChatColor.GRAY + " - Show waypoint directions");
         player.sendMessage(ChatColor.YELLOW + "/quest abandon <number>" + ChatColor.GRAY + " - Abandon a quest");
         player.sendMessage("");
         player.sendMessage(ChatColor.GRAY + "To get quests, talk to NPCs using " +
                 ChatColor.WHITE + "@<message>");
+        player.sendMessage(ChatColor.GOLD + "══════════════════════════════");
+    }
+
+    private void handleTrack(Player player, String[] args) {
+        if (questGUI == null) {
+            player.sendMessage(ChatColor.RED + "Quest tracking is not available.");
+            return;
+        }
+
+        List<Quest> quests = questManager.getActiveQuests(player.getUniqueId());
+        if (quests.isEmpty()) {
+            player.sendMessage(ChatColor.YELLOW + "You have no active quests to track.");
+            return;
+        }
+
+        int index;
+        if (args.length < 2) {
+            index = 1;
+        } else {
+            try {
+                index = Integer.parseInt(args[1]);
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.RED + "Invalid quest number.");
+                return;
+            }
+        }
+
+        if (index < 1 || index > quests.size()) {
+            player.sendMessage(ChatColor.RED + "Quest number must be between 1 and " + quests.size());
+            return;
+        }
+
+        Quest quest = quests.get(index - 1);
+        questGUI.trackQuest(player, quest);
+    }
+
+    private void handleWaypoint(Player player, String[] args) {
+        if (questGUI == null) {
+            player.sendMessage(ChatColor.RED + "Quest tracking is not available.");
+            return;
+        }
+
+        Quest tracked = questGUI.getTrackedQuest(player.getUniqueId());
+        if (tracked == null) {
+            player.sendMessage(ChatColor.YELLOW + "You are not tracking any quest.");
+            player.sendMessage(ChatColor.GRAY + "Use /quest track <number> to track a quest.");
+            return;
+        }
+
+        Location waypoint = tracked.getWaypointLocation(plugin.getServer());
+        if (waypoint == null) {
+            player.sendMessage(ChatColor.YELLOW + "Tracking: " + ChatColor.GOLD + tracked.getTitle());
+            player.sendMessage(ChatColor.GRAY + "This quest has no specific waypoint location.");
+            return;
+        }
+
+        double distance = tracked.getDistanceToWaypoint(player.getLocation(), plugin.getServer());
+        String direction = tracked.getDirectionToWaypoint(player.getLocation(), plugin.getServer());
+
+        player.sendMessage(ChatColor.GOLD + "═══════ Quest Waypoint ═══════");
+        player.sendMessage(ChatColor.YELLOW + "Tracking: " + ChatColor.WHITE + tracked.getTitle());
+        player.sendMessage("");
+        if (distance >= 0) {
+            player.sendMessage(ChatColor.AQUA + "⚑ Distance: " + ChatColor.WHITE + (int) distance + " blocks");
+            player.sendMessage(ChatColor.AQUA + "⚑ Direction: " + ChatColor.WHITE + direction);
+            player.sendMessage(ChatColor.AQUA + "⚑ Coordinates: " + ChatColor.WHITE +
+                    String.format("%.0f, %.0f, %.0f", waypoint.getX(), waypoint.getY(), waypoint.getZ()));
+        } else {
+            player.sendMessage(ChatColor.GRAY + "Waypoint is in a different world.");
+        }
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "Your compass points to this location!");
         player.sendMessage(ChatColor.GOLD + "══════════════════════════════");
     }
 
@@ -191,10 +287,10 @@ public class QuestCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("list", "info", "abandon"));
+            completions.addAll(Arrays.asList("list", "info", "abandon", "track", "waypoint", "gui"));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
-            if (sub.equals("info") || sub.equals("abandon")) {
+            if (sub.equals("info") || sub.equals("abandon") || sub.equals("track")) {
                 if (sender instanceof Player player) {
                     List<Quest> quests = questManager.getActiveQuests(player.getUniqueId());
                     for (int i = 1; i <= quests.size(); i++) {

@@ -1,5 +1,6 @@
 package com.aicraft.npcs;
 
+import com.aicraft.ai.Dialect;
 import org.bukkit.Location;
 import org.bukkit.entity.EntityType;
 
@@ -17,6 +18,7 @@ public class AINpc {
     private String personality;
     private String backstory;
     private String currentMood;
+    private Dialect dialect;
 
     private Location spawnLocation;
     private Location currentLocation;
@@ -215,6 +217,22 @@ public class AINpc {
 
     public void setCanGiveQuests(boolean canGiveQuests) {
         this.canGiveQuests = canGiveQuests;
+    }
+
+    public Dialect getDialect() {
+        return dialect != null ? dialect : Dialect.STANDARD;
+    }
+
+    public void setDialect(Dialect dialect) {
+        this.dialect = dialect;
+    }
+
+    public String getDialectName() {
+        return dialect != null ? dialect.getName() : "Standard";
+    }
+
+    public void setDialectFromString(String dialectName) {
+        this.dialect = Dialect.fromString(dialectName);
     }
 
     public org.bukkit.entity.Entity getBukkitEntity() {

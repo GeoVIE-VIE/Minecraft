@@ -16,9 +16,10 @@ commands:
     usage: /<command> <create|remove|list|info|setrelation>
     permission: aicompanions.faction
   quest:
-    description: Quest management
-    usage: /<command> <create|list|info>
+    description: Quest journal - Opens GUI, track quests with waypoints
+    usage: /<command> [list|info|track|waypoint|abandon]
     permission: aicompanions.quest
+    aliases: [quests, questlog, journal]
   aiconfig:
     description: Configure AI settings
     usage: /<command> <reload|setprovider|test>
@@ -32,8 +33,8 @@ permissions:
     description: Allows faction management
     default: op
   aicompanions.quest:
-    description: Allows quest management
-    default: op
+    description: Allows quest management and viewing quest journal
+    default: true
   aicompanions.admin:
     description: Full admin access
     default: op

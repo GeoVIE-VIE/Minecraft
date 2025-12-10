@@ -79,12 +79,12 @@ factions:
     - name: "Bandits"
       color: "RED"
       description: "Ruthless outlaws who prey on travelers"
-      hostile-to: ["Villagers", "Guards"]
+      hostile-to: ["Villagers", "Guards", "Merchants"]
 
     - name: "Guards"
       color: "BLUE"
       description: "Protectors of the realm"
-      hostile-to: ["Bandits"]
+      hostile-to: ["Bandits", "Cultists"]
 
     - name: "Merchants"
       color: "GOLD"
@@ -95,6 +95,11 @@ factions:
       color: "GRAY"
       description: "Mysterious travelers with unknown motives"
       hostile-to: []
+
+    - name: "Cultists"
+      color: "DARK_PURPLE"
+      description: "Mysterious followers of Geodjian who dwell in dark places"
+      hostile-to: ["Guards"]
 
 # =============================================================================
 # Memory & Conversation Settings

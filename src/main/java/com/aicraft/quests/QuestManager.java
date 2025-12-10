@@ -8,6 +8,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -149,10 +150,81 @@ public class QuestManager {
         List<Quest> quests = playerQuests.computeIfAbsent(player.getUniqueId(),
                 k -> Collections.synchronizedList(new ArrayList<>()));
         quests.add(quest);
+
+        // Set the turn-in location to the NPC's current position
+        if (quest.getNpcUuid() != null) {
+            AINpc npc = plugin.getNPCManager().getNPC(quest.getNpcUuid());
+            if (npc != null && npc.getCurrentLocation() != null) {
+                quest.setTurnInLocation(npc.getCurrentLocation());
+            }
+        }
+
+        // Generate a suggested target location based on quest type
+        generateQuestTargetLocation(quest, player);
+
         database.saveQuest(quest);
 
         player.sendMessage(ChatColor.GREEN + "Quest accepted: " + ChatColor.GOLD + quest.getTitle());
         player.sendMessage(ChatColor.GRAY + quest.getObjective());
+
+        // Show waypoint info if available
+        if (quest.hasTargetLocation()) {
+            double distance = quest.getDistanceToWaypoint(player.getLocation(), plugin.getServer());
+            String direction = quest.getDirectionToWaypoint(player.getLocation(), plugin.getServer());
+            if (distance > 0) {
+                player.sendMessage(ChatColor.AQUA + "⚑ Quest area: " + (int) distance + " blocks " + direction);
+                player.sendMessage(ChatColor.GRAY + "Use /quest track to set your compass waypoint!");
+            }
+        }
+    }
+
+    /**
+     * Generate a target location for the quest based on type
+     */
+    private void generateQuestTargetLocation(Quest quest, Player player) {
+        if (quest.getQuestType() == null) return;
+
+        Random random = new Random();
+        Location playerLoc = player.getLocation();
+
+        switch (quest.getQuestType().toLowerCase()) {
+            case "kill" -> {
+                // Kill quests: Set target area some distance from the player
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double distance = 50 + random.nextInt(100); // 50-150 blocks away
+                double x = playerLoc.getX() + Math.cos(angle) * distance;
+                double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+            }
+            case "fetch" -> {
+                // Fetch quests: Items can be found anywhere, suggest a mining/gathering area
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double distance = 30 + random.nextInt(70); // 30-100 blocks away
+                double x = playerLoc.getX() + Math.cos(angle) * distance;
+                double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+            }
+            case "explore" -> {
+                // Explore quests: Point to a random interesting location
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double distance = 100 + random.nextInt(200); // 100-300 blocks away
+                double x = playerLoc.getX() + Math.cos(angle) * distance;
+                double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+            }
+            case "delivery" -> {
+                // Delivery: Point to another NPC (for now, use random location)
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double distance = 80 + random.nextInt(120); // 80-200 blocks away
+                double x = playerLoc.getX() + Math.cos(angle) * distance;
+                double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+            }
+        }
     }
 
     /**

@@ -5,7 +5,9 @@ import com.aicraft.factions.Faction;
 import com.aicraft.factions.FactionManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Biome;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,6 +17,7 @@ import org.bukkit.scheduler.BukkitTask;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * Automatically spawns NPCs around the world based on player locations
@@ -251,11 +254,10 @@ public class NPCSpawner implements Listener {
     }
 
     /**
-     * Spawn a random NPC at location with weighted faction selection
+     * Spawn a random NPC at location with biome-aware faction selection
      */
     private void spawnRandomNPC(Location location) {
-        Faction faction = pickRandomFaction();
-        String factionName = faction != null ? faction.getName() : "Wanderers";
+        String factionName = pickFactionForLocation(location);
 
         AINpc npc = npcManager.createRandomNPC(location, factionName);
 
@@ -264,28 +266,176 @@ public class NPCSpawner implements Listener {
     }
 
     /**
-     * Pick a random faction with weighted chances
+     * Pick appropriate faction based on location/biome
+     */
+    private String pickFactionForLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return "Wanderers";
+        }
+
+        // Check if this is a dungeon/underground location
+        if (isDungeonLocation(location)) {
+            // High chance of Cultists in dungeons
+            int roll = random.nextInt(100);
+            if (roll < 60) return "Cultists";
+            if (roll < 80) return "Bandits";
+            return "Wanderers";
+        }
+
+        // Get biome for surface spawning
+        Biome biome = location.getBlock().getBiome();
+
+        // Biome-based faction selection
+        return pickFactionForBiome(biome);
+    }
+
+    /**
+     * Check if location is a dungeon/underground area
+     */
+    private boolean isDungeonLocation(Location location) {
+        if (location == null || location.getWorld() == null) return false;
+
+        Block block = location.getBlock();
+
+        // Check if underground (below sea level and enclosed)
+        if (location.getY() < 50) {
+            // Check for dungeon indicators
+            Block above = block.getRelative(0, 2, 0);
+            Block floor = block.getRelative(0, -1, 0);
+
+            // Dungeon indicators: stone/cobblestone ceiling and floor
+            Set<Material> dungeonMaterials = Set.of(
+                    Material.COBBLESTONE, Material.MOSSY_COBBLESTONE,
+                    Material.STONE_BRICKS, Material.CRACKED_STONE_BRICKS,
+                    Material.MOSSY_STONE_BRICKS, Material.DEEPSLATE_BRICKS,
+                    Material.DEEPSLATE_TILES, Material.NETHER_BRICKS
+            );
+
+            if (dungeonMaterials.contains(above.getType()) ||
+                    dungeonMaterials.contains(floor.getType())) {
+                return true;
+            }
+
+            // Also check for spawner nearby (indicates dungeon)
+            for (int dx = -3; dx <= 3; dx++) {
+                for (int dy = -2; dy <= 2; dy++) {
+                    for (int dz = -3; dz <= 3; dz++) {
+                        if (block.getRelative(dx, dy, dz).getType() == Material.SPAWNER) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Pick faction based on biome type
+     */
+    private String pickFactionForBiome(Biome biome) {
+        int roll = random.nextInt(100);
+
+        // Village/Plains biomes - more villagers and guards
+        if (isVillageBiome(biome)) {
+            if (roll < 40) return "Villagers";
+            if (roll < 60) return "Guards";
+            if (roll < 75) return "Merchants";
+            if (roll < 90) return "Wanderers";
+            return "Bandits"; // 10% - occasional trouble
+        }
+
+        // Forest biomes - bandits and wanderers
+        if (isForestBiome(biome)) {
+            if (roll < 30) return "Bandits";
+            if (roll < 55) return "Wanderers";
+            if (roll < 70) return "Merchants";
+            if (roll < 85) return "Villagers";
+            return "Guards"; // Patrols
+        }
+
+        // Desert/Badlands - more bandits
+        if (isDesertBiome(biome)) {
+            if (roll < 40) return "Bandits";
+            if (roll < 60) return "Wanderers";
+            if (roll < 80) return "Merchants";
+            return "Guards";
+        }
+
+        // Mountain biomes - hermits and guards
+        if (isMountainBiome(biome)) {
+            if (roll < 35) return "Wanderers";
+            if (roll < 55) return "Guards";
+            if (roll < 70) return "Villagers";
+            if (roll < 85) return "Bandits";
+            return "Merchants";
+        }
+
+        // Swamp - mysterious types
+        if (isSwampBiome(biome)) {
+            if (roll < 25) return "Cultists"; // Higher cult presence
+            if (roll < 50) return "Wanderers";
+            if (roll < 70) return "Bandits";
+            return "Villagers";
+        }
+
+        // Default distribution
+        if (roll < 30) return "Villagers";
+        if (roll < 50) return "Wanderers";
+        if (roll < 65) return "Merchants";
+        if (roll < 80) return "Guards";
+        return "Bandits";
+    }
+
+    private boolean isVillageBiome(Biome biome) {
+        String name = biome.name().toLowerCase();
+        return name.contains("plains") || name.contains("savanna") ||
+                name.contains("meadow") || name.contains("sunflower");
+    }
+
+    private boolean isForestBiome(Biome biome) {
+        String name = biome.name().toLowerCase();
+        return name.contains("forest") || name.contains("taiga") ||
+                name.contains("grove") || name.contains("jungle");
+    }
+
+    private boolean isDesertBiome(Biome biome) {
+        String name = biome.name().toLowerCase();
+        return name.contains("desert") || name.contains("badlands") ||
+                name.contains("mesa");
+    }
+
+    private boolean isMountainBiome(Biome biome) {
+        String name = biome.name().toLowerCase();
+        return name.contains("mountain") || name.contains("peak") ||
+                name.contains("hill") || name.contains("cliff");
+    }
+
+    private boolean isSwampBiome(Biome biome) {
+        String name = biome.name().toLowerCase();
+        return name.contains("swamp") || name.contains("marsh") ||
+                name.contains("mangrove");
+    }
+
+    /**
+     * Pick a random faction with weighted chances (legacy method)
      */
     private Faction pickRandomFaction() {
         int roll = random.nextInt(100);
 
-        // Weighted distribution:
-        // 35% Villagers (most common, peaceful)
-        // 20% Wanderers (neutral travelers)
-        // 15% Merchants (traders)
-        // 15% Guards (protectors)
-        // 15% Bandits (hostile)
-
-        if (roll < 35) {
+        if (roll < 30) {
             return factionManager.getFaction("Villagers");
-        } else if (roll < 55) {
+        } else if (roll < 50) {
             return factionManager.getFaction("Wanderers");
-        } else if (roll < 70) {
+        } else if (roll < 65) {
             return factionManager.getFaction("Merchants");
-        } else if (roll < 85) {
+        } else if (roll < 80) {
             return factionManager.getFaction("Guards");
-        } else {
+        } else if (roll < 95) {
             return factionManager.getFaction("Bandits");
+        } else {
+            return factionManager.getFaction("Cultists");
         }
     }
 
