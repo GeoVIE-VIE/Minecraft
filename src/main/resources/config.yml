@@ -1,0 +1,162 @@
+# AICompanions Configuration
+# AI-powered NPCs with personalities, factions, quests, and dynamic conversations
+
+# =============================================================================
+# AI Provider Settings
+# =============================================================================
+ai:
+  # Primary provider: "claude" or "openai"
+  provider: "claude"
+
+  # Claude API Settings
+  claude:
+    api-key: "YOUR_CLAUDE_API_KEY_HERE"
+    model: "claude-sonnet-4-20250514"
+    max-tokens: 300
+
+  # OpenAI API Settings
+  openai:
+    api-key: "YOUR_OPENAI_API_KEY_HERE"
+    model: "gpt-4o"
+    max-tokens: 300
+
+  # Request settings
+  timeout-seconds: 30
+  retry-attempts: 3
+
+  # Rate limiting (requests per minute per player)
+  rate-limit: 10
+
+# =============================================================================
+# NPC Settings
+# =============================================================================
+npcs:
+  # How far players can interact with NPCs (blocks)
+  interaction-distance: 5
+
+  # Enable wandering behavior
+  wandering:
+    enabled: true
+    # How often NPCs decide to move (ticks, 20 = 1 second)
+    decision-interval: 200
+    # Maximum wander distance from spawn point
+    max-distance: 50
+    # Chance to wander vs stay still (0.0 - 1.0)
+    wander-chance: 0.3
+
+  # NPC vulnerability settings
+  vulnerability:
+    # Can NPCs take damage from mobs?
+    damage-from-mobs: true
+    # Can NPCs take damage from other NPCs?
+    damage-from-npcs: true
+    # Can NPCs take damage from players?
+    damage-from-players: false
+    # Do NPCs respawn after death?
+    respawn: true
+    # Respawn delay in seconds
+    respawn-delay: 300
+
+  # Combat settings for hostile NPCs
+  combat:
+    enabled: true
+    # How far NPCs detect threats
+    detection-range: 16
+    # Attack cooldown in ticks
+    attack-cooldown: 20
+
+# =============================================================================
+# Faction Settings
+# =============================================================================
+factions:
+  # Default factions created on first run
+  defaults:
+    - name: "Villagers"
+      color: "GREEN"
+      description: "Peaceful traders and farmers"
+      hostile-to: []
+
+    - name: "Bandits"
+      color: "RED"
+      description: "Ruthless outlaws who prey on travelers"
+      hostile-to: ["Villagers", "Guards"]
+
+    - name: "Guards"
+      color: "BLUE"
+      description: "Protectors of the realm"
+      hostile-to: ["Bandits"]
+
+    - name: "Merchants"
+      color: "GOLD"
+      description: "Wandering traders seeking profit"
+      hostile-to: []
+
+    - name: "Wanderers"
+      color: "GRAY"
+      description: "Mysterious travelers with unknown motives"
+      hostile-to: []
+
+# =============================================================================
+# Memory & Conversation Settings
+# =============================================================================
+memory:
+  # How many messages to remember per NPC-player pair
+  max-history: 20
+
+  # How long to keep memories (days, 0 = forever)
+  retention-days: 30
+
+  # Enable NPCs sharing information about players
+  gossip-enabled: true
+
+  # How often NPCs gossip (minutes)
+  gossip-interval: 30
+
+# =============================================================================
+# Quest Settings
+# =============================================================================
+quests:
+  # Enable AI-generated quests
+  ai-generated: true
+
+  # Quest types that can be generated
+  types:
+    - "fetch"      # Bring items to NPC
+    - "kill"       # Defeat enemies
+    - "escort"     # Protect NPC during travel
+    - "explore"    # Discover locations
+    - "delivery"   # Deliver items to another NPC
+
+  # Reward multipliers
+  rewards:
+    experience-multiplier: 1.0
+    item-multiplier: 1.0
+
+# =============================================================================
+# World Settings
+# =============================================================================
+world:
+  # Worlds where NPCs can spawn
+  enabled-worlds:
+    - "world"
+    - "world_nether"
+    - "world_the_end"
+
+  # Maximum NPCs per world
+  max-npcs-per-world: 100
+
+  # Spawn NPCs near villages
+  spawn-near-villages: true
+
+# =============================================================================
+# Performance Settings
+# =============================================================================
+performance:
+  # Use async processing for AI calls
+  async-ai-calls: true
+
+  # Database auto-save interval (minutes)
+  save-interval: 5
+
+  # Enable debug logging
+  debug: false

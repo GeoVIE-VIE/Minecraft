@@ -1,0 +1,42 @@
+name: AICompanions
+version: ${project.version}
+main: com.aicraft.AICompanions
+api-version: '1.20'
+description: AI-powered NPCs with personalities, factions, quests, and dynamic conversations
+author: YourName
+website: https://github.com/yourusername/AICompanions
+
+commands:
+  npc:
+    description: Manage AI NPCs
+    usage: /<command> <create|remove|list|info|teleport>
+    permission: aicompanions.npc
+  faction:
+    description: Manage factions
+    usage: /<command> <create|remove|list|info|setrelation>
+    permission: aicompanions.faction
+  quest:
+    description: Quest management
+    usage: /<command> <create|list|info>
+    permission: aicompanions.quest
+  aiconfig:
+    description: Configure AI settings
+    usage: /<command> <reload|setprovider|test>
+    permission: aicompanions.admin
+
+permissions:
+  aicompanions.npc:
+    description: Allows NPC management
+    default: op
+  aicompanions.faction:
+    description: Allows faction management
+    default: op
+  aicompanions.quest:
+    description: Allows quest management
+    default: op
+  aicompanions.admin:
+    description: Full admin access
+    default: op
+  aicompanions.talk:
+    description: Allows talking to NPCs
+    default: true
