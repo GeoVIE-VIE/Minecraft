@@ -139,17 +139,26 @@ spawning:
   # Enable automatic NPC spawning
   enabled: true
 
-  # How many NPCs can exist per world
-  max-npcs-per-world: 20
+  # How many NPCs can exist per world (total)
+  max-npcs-per-world: 100
+
+  # How many NPCs should be near each player (within render distance)
+  npcs-per-area: 20
 
   # How often to try spawning new NPCs (seconds)
-  interval-seconds: 60
+  interval-seconds: 30
+
+  # How many NPCs to spawn per cycle
+  spawn-batch-size: 5
 
   # Minimum distance from player to spawn
-  min-distance-from-player: 20
+  min-distance-from-player: 15
 
   # Maximum distance from player to spawn
-  max-distance-from-player: 80
+  max-distance-from-player: 60
+
+  # Initial spawn on server start (per player online)
+  initial-spawn-count: 15
 
 # =============================================================================
 # World Settings
