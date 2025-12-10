@@ -7,6 +7,7 @@ import com.aicraft.factions.FactionManager;
 import com.aicraft.listeners.ChatListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
+import com.aicraft.listeners.QuestProgressListener;
 import com.aicraft.memory.MemoryManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.behavior.WanderingManager;
@@ -139,6 +140,7 @@ public class AICompanions extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatListener(this, npcManager, aiManager, memoryManager), this);
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
         getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
+        getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
     }
 
     private void startTasks() {
