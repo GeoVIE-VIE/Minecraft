@@ -7,6 +7,7 @@ import com.aicraft.factions.FactionManager;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
 import org.bukkit.ChatColor;
+import org.bukkit.Location;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -52,6 +53,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         switch (subCommand) {
             case "create" -> handleCreate(player, args);
             case "random" -> handleRandom(player, args);
+            case "populate", "spawn" -> handlePopulate(player, args);
             case "remove", "delete" -> handleRemove(player, args);
             case "list" -> handleList(player, args);
             case "info" -> handleInfo(player, args);
@@ -60,6 +62,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             case "setpersonality" -> handleSetPersonality(player, args);
             case "setfaction" -> handleSetFaction(player, args);
             case "regenerate" -> handleRegenerate(player, args);
+            case "clear" -> handleClear(player);
             default -> showHelp(player);
         }
 
@@ -70,6 +73,8 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.GOLD + "═══════ AICompanions NPC Commands ═══════");
         player.sendMessage(ChatColor.YELLOW + "/npc create <name> [faction]" + ChatColor.GRAY + " - Create an NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc random [faction]" + ChatColor.GRAY + " - Create random NPC");
+        player.sendMessage(ChatColor.YELLOW + "/npc populate [count]" + ChatColor.GRAY + " - Auto-spawn NPCs nearby");
+        player.sendMessage(ChatColor.YELLOW + "/npc clear" + ChatColor.GRAY + " - Remove all NPCs");
         player.sendMessage(ChatColor.YELLOW + "/npc remove <name>" + ChatColor.GRAY + " - Remove an NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc list [faction]" + ChatColor.GRAY + " - List all NPCs");
         player.sendMessage(ChatColor.YELLOW + "/npc info <name>" + ChatColor.GRAY + " - Show NPC details");
@@ -126,6 +131,69 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
 
         player.sendMessage(ChatColor.GREEN + "Created random NPC: " + ChatColor.GOLD + npc.getName());
         player.sendMessage(ChatColor.GRAY + "Faction: " + npc.getFaction());
+    }
+
+    private void handlePopulate(Player player, String[] args) {
+        int count = 10; // Default
+        if (args.length > 1) {
+            try {
+                count = Integer.parseInt(args[1]);
+                count = Math.min(count, 50); // Cap at 50
+            } catch (NumberFormatException e) {
+                player.sendMessage(ChatColor.RED + "Invalid number. Using default (10)");
+            }
+        }
+
+        player.sendMessage(ChatColor.YELLOW + "Spawning " + count + " NPCs nearby...");
+
+        int spawned = 0;
+        for (int i = 0; i < count; i++) {
+            // Pick random faction
+            Faction faction = factionManager.getRandomFaction();
+            String factionName = faction != null ? faction.getName() : "Wanderers";
+
+            // Find spawn location near player
+            Location loc = findSpawnLocation(player);
+            if (loc != null) {
+                npcManager.createRandomNPC(loc, factionName);
+                spawned++;
+            }
+        }
+
+        player.sendMessage(ChatColor.GREEN + "Spawned " + spawned + " NPCs!");
+    }
+
+    private Location findSpawnLocation(Player player) {
+        java.util.Random random = new java.util.Random();
+        Location playerLoc = player.getLocation();
+
+        for (int attempts = 0; attempts < 10; attempts++) {
+            double angle = random.nextDouble() * 2 * Math.PI;
+            double distance = 10 + random.nextDouble() * 40; // 10-50 blocks away
+
+            double x = playerLoc.getX() + Math.cos(angle) * distance;
+            double z = playerLoc.getZ() + Math.sin(angle) * distance;
+            int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+
+            Location loc = new Location(playerLoc.getWorld(), x, y + 1, z);
+
+            // Basic validation
+            if (loc.getBlock().getType().isAir()) {
+                return loc;
+            }
+        }
+        return player.getLocation(); // Fallback
+    }
+
+    private void handleClear(Player player) {
+        int count = npcManager.getNPCCount();
+
+        // Remove all NPCs
+        for (AINpc npc : new java.util.ArrayList<>(npcManager.getAllNPCs())) {
+            npcManager.removeNPC(npc.getUuid());
+        }
+
+        player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs.");
     }
 
     private void handleRemove(Player player, String[] args) {

@@ -10,6 +10,7 @@ import com.aicraft.listeners.PlayerInteractListener;
 import com.aicraft.listeners.QuestProgressListener;
 import com.aicraft.memory.MemoryManager;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
 import com.aicraft.quests.QuestManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -37,6 +38,7 @@ public class AICompanions extends JavaPlugin {
     private MemoryManager memoryManager;
     private QuestManager questManager;
     private WanderingManager wanderingManager;
+    private NPCSpawner npcSpawner;
 
     @Override
     public void onEnable() {
@@ -100,6 +102,11 @@ public class AICompanions extends JavaPlugin {
             wanderingManager.stop();
         }
 
+        // Stop spawner
+        if (npcSpawner != null) {
+            npcSpawner.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -127,6 +134,9 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing wandering manager...");
         wanderingManager = new WanderingManager(this, npcManager, factionManager);
+
+        getLogger().info("Initializing NPC spawner...");
+        npcSpawner = new NPCSpawner(this, npcManager, factionManager);
     }
 
     private void registerCommands() {
@@ -163,6 +173,11 @@ public class AICompanions extends JavaPlugin {
             getServer().getScheduler().runTaskTimerAsynchronously(this, () -> {
                 memoryManager.processGossip(npcManager.getAllNPCs());
             }, gossipInterval, gossipInterval);
+        }
+
+        // Start auto-spawning NPCs
+        if (getConfig().getBoolean("spawning.enabled", true)) {
+            npcSpawner.start();
         }
     }
 
@@ -204,6 +219,10 @@ public class AICompanions extends JavaPlugin {
 
     public WanderingManager getWanderingManager() {
         return wanderingManager;
+    }
+
+    public NPCSpawner getNPCSpawner() {
+        return npcSpawner;
     }
 
     public boolean isDebug() {

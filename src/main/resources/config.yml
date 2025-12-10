@@ -133,6 +133,25 @@ quests:
     item-multiplier: 1.0
 
 # =============================================================================
+# Auto-Spawning Settings
+# =============================================================================
+spawning:
+  # Enable automatic NPC spawning
+  enabled: true
+
+  # How many NPCs can exist per world
+  max-npcs-per-world: 20
+
+  # How often to try spawning new NPCs (seconds)
+  interval-seconds: 60
+
+  # Minimum distance from player to spawn
+  min-distance-from-player: 20
+
+  # Maximum distance from player to spawn
+  max-distance-from-player: 80
+
+# =============================================================================
 # World Settings
 # =============================================================================
 world:
@@ -141,9 +160,6 @@ world:
     - "world"
     - "world_nether"
     - "world_the_end"
-
-  # Maximum NPCs per world
-  max-npcs-per-world: 100
 
   # Spawn NPCs near villages
   spawn-near-villages: true
