@@ -54,17 +54,26 @@ public class AIManager {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 String prompt = buildPrompt(npc, playerName, playerMessage, conversationHistory);
+                plugin.getLogger().info("Sending AI request for NPC: " + npc.getName() + " (player: " + playerName + ")");
+
                 String response = primaryProvider.chat(prompt);
 
                 if (response == null || response.isEmpty()) {
-                    plugin.debug("Primary provider returned empty, trying fallback");
+                    plugin.getLogger().warning("Primary provider returned empty response, trying fallback...");
                     response = fallbackProvider.chat(prompt);
                 }
 
-                return response != null ? response : getDefaultResponse(npc);
+                if (response == null || response.isEmpty()) {
+                    plugin.getLogger().warning("Both AI providers returned empty - using default response");
+                    return getDefaultResponse(npc);
+                }
+
+                plugin.getLogger().info("AI response received successfully for " + npc.getName());
+                return response;
 
             } catch (Exception e) {
                 plugin.getLogger().warning("AI request failed: " + e.getMessage());
+                e.printStackTrace();
                 try {
                     String prompt = buildPrompt(npc, playerName, playerMessage, conversationHistory);
                     return fallbackProvider.chat(prompt);

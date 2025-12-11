@@ -84,7 +84,7 @@ public class OpenAIProvider implements AIProvider {
                 .post(RequestBody.create(gson.toJson(requestBody), JSON))
                 .build();
 
-        plugin.debug("Sending request to OpenAI API...");
+        plugin.getLogger().info("Sending request to OpenAI API (model: " + model + ")...");
 
         int retryAttempts = plugin.getConfig().getInt("ai.retry-attempts", 3);
 
@@ -92,8 +92,10 @@ public class OpenAIProvider implements AIProvider {
             try (Response response = client.newCall(request).execute()) {
                 String responseBody = response.body() != null ? response.body().string() : "";
 
+                plugin.getLogger().info("OpenAI response code: " + response.code());
+
                 if (!response.isSuccessful()) {
-                    plugin.getLogger().warning("OpenAI API error (attempt " + attempt + "): " +
+                    plugin.getLogger().severe("OpenAI API error (attempt " + attempt + "): " +
                             response.code() + " - " + responseBody);
 
                     if (attempt < retryAttempts) {
