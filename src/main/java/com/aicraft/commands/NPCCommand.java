@@ -38,60 +38,87 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "This command can only be used by players.");
-            return true;
-        }
-
         if (args.length == 0) {
-            showHelp(player);
+            showHelp(sender);
             return true;
         }
 
         String subCommand = args[0].toLowerCase();
 
+        // Commands that can run from console
+        switch (subCommand) {
+            case "list" -> {
+                handleList(sender, args);
+                return true;
+            }
+            case "clear" -> {
+                handleClear(sender, args);
+                return true;
+            }
+            case "clearall", "purge", "wipe" -> {
+                handleClearAll(sender);
+                return true;
+            }
+            case "cleardead" -> {
+                handleClearDead(sender);
+                return true;
+            }
+            case "respawnall" -> {
+                handleRespawnAll(sender);
+                return true;
+            }
+            case "killall" -> {
+                handleKillAll(sender);
+                return true;
+            }
+            case "remove", "delete" -> {
+                handleRemove(sender, args);
+                return true;
+            }
+        }
+
+        // Commands that require a player
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "This command can only be used by players in-game.");
+            sender.sendMessage(ChatColor.GRAY + "Console commands: list, clear, clearall, cleardead, respawnall, killall, remove");
+            return true;
+        }
+
         switch (subCommand) {
             case "create" -> handleCreate(player, args);
             case "random" -> handleRandom(player, args);
             case "populate", "spawn" -> handlePopulate(player, args);
-            case "remove", "delete" -> handleRemove(player, args);
-            case "list" -> handleList(player, args);
             case "info" -> handleInfo(player, args);
             case "teleport", "tp" -> handleTeleport(player, args);
             case "near", "nearby" -> handleNearby(player);
             case "setpersonality" -> handleSetPersonality(player, args);
             case "setfaction" -> handleSetFaction(player, args);
             case "regenerate" -> handleRegenerate(player, args);
-            case "clear" -> handleClear(player, args);
-            case "clearall", "purge", "wipe" -> handleClearAll(player);
-            case "cleardead" -> handleClearDead(player);
-            case "respawnall" -> handleRespawnAll(player);
-            case "killall" -> handleKillAll(player);
-            default -> showHelp(player);
+            default -> showHelp(sender);
         }
 
         return true;
     }
 
-    private void showHelp(Player player) {
-        player.sendMessage(ChatColor.GOLD + "═══════ AICompanions NPC Commands ═══════");
-        player.sendMessage(ChatColor.YELLOW + "/npc create <name> [faction]" + ChatColor.GRAY + " - Create an NPC");
-        player.sendMessage(ChatColor.YELLOW + "/npc random [faction]" + ChatColor.GRAY + " - Create random NPC");
-        player.sendMessage(ChatColor.YELLOW + "/npc populate [count]" + ChatColor.GRAY + " - Auto-spawn NPCs nearby");
-        player.sendMessage(ChatColor.YELLOW + "/npc remove <name>" + ChatColor.GRAY + " - Remove an NPC");
-        player.sendMessage(ChatColor.YELLOW + "/npc list [faction]" + ChatColor.GRAY + " - List all NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/npc info <name>" + ChatColor.GRAY + " - Show NPC details");
-        player.sendMessage(ChatColor.YELLOW + "/npc near" + ChatColor.GRAY + " - Show nearby NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/npc tp <name>" + ChatColor.GRAY + " - Teleport to NPC");
-        player.sendMessage(ChatColor.YELLOW + "/npc setfaction <name> <faction>" + ChatColor.GRAY + " - Change faction");
-        player.sendMessage(ChatColor.YELLOW + "/npc regenerate <name>" + ChatColor.GRAY + " - Regenerate backstory");
-        player.sendMessage(ChatColor.RED + "--- Bulk Operations ---");
-        player.sendMessage(ChatColor.YELLOW + "/npc clear [faction]" + ChatColor.GRAY + " - Remove NPCs (optionally by faction)");
-        player.sendMessage(ChatColor.YELLOW + "/npc clearall" + ChatColor.GRAY + " - Remove ALL NPCs and wipe database");
-        player.sendMessage(ChatColor.YELLOW + "/npc cleardead" + ChatColor.GRAY + " - Remove only dead NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/npc respawnall" + ChatColor.GRAY + " - Respawn all NPCs");
-        player.sendMessage(ChatColor.YELLOW + "/npc killall" + ChatColor.GRAY + " - Kill all NPCs (they can respawn)");
-        player.sendMessage(ChatColor.GOLD + "════════════════════════════════════");
+    private void showHelp(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "═══════ AICompanions NPC Commands ═══════");
+        sender.sendMessage(ChatColor.YELLOW + "/npc create <name> [faction]" + ChatColor.GRAY + " - Create an NPC");
+        sender.sendMessage(ChatColor.YELLOW + "/npc random [faction]" + ChatColor.GRAY + " - Create random NPC");
+        sender.sendMessage(ChatColor.YELLOW + "/npc populate [count]" + ChatColor.GRAY + " - Auto-spawn NPCs nearby");
+        sender.sendMessage(ChatColor.YELLOW + "/npc remove <name>" + ChatColor.GRAY + " - Remove an NPC");
+        sender.sendMessage(ChatColor.YELLOW + "/npc list [faction]" + ChatColor.GRAY + " - List all NPCs");
+        sender.sendMessage(ChatColor.YELLOW + "/npc info <name>" + ChatColor.GRAY + " - Show NPC details");
+        sender.sendMessage(ChatColor.YELLOW + "/npc near" + ChatColor.GRAY + " - Show nearby NPCs");
+        sender.sendMessage(ChatColor.YELLOW + "/npc tp <name>" + ChatColor.GRAY + " - Teleport to NPC");
+        sender.sendMessage(ChatColor.YELLOW + "/npc setfaction <name> <faction>" + ChatColor.GRAY + " - Change faction");
+        sender.sendMessage(ChatColor.YELLOW + "/npc regenerate <name>" + ChatColor.GRAY + " - Regenerate backstory");
+        sender.sendMessage(ChatColor.RED + "--- Bulk Operations (Console OK) ---");
+        sender.sendMessage(ChatColor.YELLOW + "/npc clear [faction]" + ChatColor.GRAY + " - Remove NPCs (optionally by faction)");
+        sender.sendMessage(ChatColor.YELLOW + "/npc clearall" + ChatColor.GRAY + " - Remove ALL NPCs and wipe database");
+        sender.sendMessage(ChatColor.YELLOW + "/npc cleardead" + ChatColor.GRAY + " - Remove only dead NPCs");
+        sender.sendMessage(ChatColor.YELLOW + "/npc respawnall" + ChatColor.GRAY + " - Respawn all NPCs");
+        sender.sendMessage(ChatColor.YELLOW + "/npc killall" + ChatColor.GRAY + " - Kill all NPCs (they can respawn)");
+        sender.sendMessage(ChatColor.GOLD + "════════════════════════════════════");
     }
 
     private void handleCreate(Player player, String[] args) {
@@ -194,7 +221,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         return player.getLocation(); // Fallback
     }
 
-    private void handleClear(Player player, String[] args) {
+    private void handleClear(CommandSender sender, String[] args) {
         String faction = args.length > 1 ? args[1] : null;
         int count = 0;
 
@@ -207,13 +234,13 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         }
 
         if (faction != null) {
-            player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs from faction: " + faction);
+            sender.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs from faction: " + faction);
         } else {
-            player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs.");
+            sender.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs.");
         }
     }
 
-    private void handleClearAll(Player player) {
+    private void handleClearAll(CommandSender sender) {
         int count = npcManager.getNPCCount();
 
         // Remove all NPCs
@@ -224,11 +251,11 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         // Also clear the database
         plugin.getDatabaseManager().clearAllNPCs();
 
-        player.sendMessage(ChatColor.GREEN + "Completely wiped " + count + " NPCs and cleared database.");
-        player.sendMessage(ChatColor.YELLOW + "Use /npc populate <count> to spawn fresh NPCs!");
+        sender.sendMessage(ChatColor.GREEN + "Completely wiped " + count + " NPCs and cleared database.");
+        sender.sendMessage(ChatColor.YELLOW + "Use /npc populate <count> to spawn fresh NPCs!");
     }
 
-    private void handleClearDead(Player player) {
+    private void handleClearDead(CommandSender sender) {
         int count = 0;
 
         for (AINpc npc : new java.util.ArrayList<>(npcManager.getAllNPCs())) {
@@ -238,10 +265,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        player.sendMessage(ChatColor.GREEN + "Removed " + count + " dead NPCs.");
+        sender.sendMessage(ChatColor.GREEN + "Removed " + count + " dead NPCs.");
     }
 
-    private void handleRespawnAll(Player player) {
+    private void handleRespawnAll(CommandSender sender) {
         int count = 0;
 
         for (AINpc npc : npcManager.getAllNPCs()) {
@@ -253,10 +280,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        player.sendMessage(ChatColor.GREEN + "Respawned " + count + " NPCs.");
+        sender.sendMessage(ChatColor.GREEN + "Respawned " + count + " NPCs.");
     }
 
-    private void handleKillAll(Player player) {
+    private void handleKillAll(CommandSender sender) {
         int count = 0;
 
         for (AINpc npc : npcManager.getAllNPCs()) {
@@ -270,12 +297,12 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             }
         }
 
-        player.sendMessage(ChatColor.RED + "Killed " + count + " NPCs. They will respawn if enabled.");
+        sender.sendMessage(ChatColor.RED + "Killed " + count + " NPCs. They will respawn if enabled.");
     }
 
-    private void handleRemove(Player player, String[] args) {
+    private void handleRemove(CommandSender sender, String[] args) {
         if (args.length < 2) {
-            player.sendMessage(ChatColor.RED + "Usage: /npc remove <name>");
+            sender.sendMessage(ChatColor.RED + "Usage: /npc remove <name>");
             return;
         }
 
@@ -283,35 +310,36 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         AINpc npc = findNPCByName(name);
 
         if (npc == null) {
-            player.sendMessage(ChatColor.RED + "NPC '" + name + "' not found.");
+            sender.sendMessage(ChatColor.RED + "NPC '" + name + "' not found.");
             return;
         }
 
         npcManager.removeNPC(npc.getUuid());
-        player.sendMessage(ChatColor.GREEN + "Removed NPC: " + npc.getName());
+        sender.sendMessage(ChatColor.GREEN + "Removed NPC: " + npc.getName());
     }
 
-    private void handleList(Player player, String[] args) {
+    private void handleList(CommandSender sender, String[] args) {
         String filterFaction = args.length > 1 ? args[1] : null;
 
         List<AINpc> npcs;
         if (filterFaction != null) {
             npcs = npcManager.getNPCsByFaction(filterFaction);
-            player.sendMessage(ChatColor.GOLD + "═══════ NPCs in " + filterFaction + " ═══════");
+            sender.sendMessage(ChatColor.GOLD + "═══════ NPCs in " + filterFaction + " ═══════");
         } else {
             npcs = new ArrayList<>(npcManager.getAllNPCs());
-            player.sendMessage(ChatColor.GOLD + "═══════ All NPCs (" + npcs.size() + ") ═══════");
+            sender.sendMessage(ChatColor.GOLD + "═══════ All NPCs (" + npcs.size() + ") ═══════");
         }
 
         if (npcs.isEmpty()) {
-            player.sendMessage(ChatColor.GRAY + "No NPCs found.");
+            sender.sendMessage(ChatColor.GRAY + "No NPCs found.");
             return;
         }
 
         for (AINpc npc : npcs) {
             String status = npc.isAlive() ? ChatColor.GREEN + "●" : ChatColor.RED + "●";
-            player.sendMessage(status + " " + ChatColor.WHITE + npc.getName() +
-                    ChatColor.GRAY + " (" + npc.getFaction() + ")");
+            String spawned = npc.isSpawned() ? "" : ChatColor.YELLOW + " [NOT SPAWNED]";
+            sender.sendMessage(status + " " + ChatColor.WHITE + npc.getName() +
+                    ChatColor.GRAY + " (" + npc.getFaction() + ")" + spawned);
         }
     }
 
