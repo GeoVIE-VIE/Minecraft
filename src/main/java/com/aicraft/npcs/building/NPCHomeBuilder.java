@@ -22,6 +22,7 @@ public class NPCHomeBuilder {
 
     private final AICompanions plugin;
     private final NPCManager npcManager;
+    private NPCTelevision tvManager;
 
     // Track NPC homes
     private final Map<UUID, NPCHome> npcHomes = new ConcurrentHashMap<>();
@@ -49,6 +50,10 @@ public class NPCHomeBuilder {
      * Start the building task
      */
     public void start() {
+        // Initialize TV manager
+        tvManager = new NPCTelevision(plugin, npcManager);
+        tvManager.start();
+
         // Building task runs every 5 minutes
         buildTask = Bukkit.getScheduler().runTaskTimer(plugin, this::processBuildingAttempts, 6000L, 6000L);
         plugin.getLogger().info("NPC Home Builder started");
@@ -61,6 +66,9 @@ public class NPCHomeBuilder {
         if (buildTask != null) {
             buildTask.cancel();
             buildTask = null;
+        }
+        if (tvManager != null) {
+            tvManager.stop();
         }
     }
 
@@ -198,6 +206,15 @@ public class NPCHomeBuilder {
         // Add a torch inside
         world.getBlockAt(baseX + 2, baseY + 2, baseZ + 2).setType(Material.TORCH);
 
+        // Add a TV against the back wall (if TV system is enabled)
+        if (tvManager != null && plugin.getConfig().getBoolean("npcs.television.enabled", true)) {
+            Location tvLoc = new Location(world, baseX + 1, baseY + 1, baseZ + 3);
+            tvManager.buildTV(tvLoc, npc, BlockFace.NORTH);
+        }
+
+        // Add a chair/seat in front of TV
+        world.getBlockAt(baseX + 2, baseY + 1, baseZ + 2).setType(Material.OAK_STAIRS);
+
         // Add name sign above door
         Block signBlock = world.getBlockAt(baseX + 2, baseY + 3, baseZ - 1);
         placeNameSign(signBlock, npc, BlockFace.NORTH);
@@ -269,6 +286,13 @@ public class NPCHomeBuilder {
      */
     public Collection<NPCHome> getAllHomes() {
         return npcHomes.values();
+    }
+
+    /**
+     * Get the TV manager
+     */
+    public NPCTelevision getTVManager() {
+        return tvManager;
     }
 
     /**

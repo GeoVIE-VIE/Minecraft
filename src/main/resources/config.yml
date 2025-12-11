@@ -65,6 +65,23 @@ npcs:
     # Attack cooldown in ticks
     attack-cooldown: 20
 
+  # NPC social interactions
+  social:
+    enabled: true
+
+  # NPC home building
+  building:
+    enabled: true
+
+  # NPC television system
+  television:
+    # Enable TVs in NPC homes
+    enabled: true
+    # How often to update TV content (ticks, 100 = 5 seconds)
+    tick-rate: 100
+    # How close players must be to see TV content (blocks)
+    view-distance: 8.0
+
 # =============================================================================
 # Faction Settings
 # =============================================================================
