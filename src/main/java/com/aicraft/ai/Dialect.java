@@ -61,7 +61,37 @@ public enum Dialect {
     // Noble/Aristocratic
     NOBLE("Noble",
         "Speak in a refined, aristocratic manner. Use formal language, express mild disdain for commoners. Be proud.",
-        new String[]{"Indeed", "How dreadfully common", "One would expect", "Frightfully", "Commoner"});
+        new String[]{"Indeed", "How dreadfully common", "One would expect", "Frightfully", "Commoner"}),
+
+    // Spanglish - Spanish/English mix
+    SPANGLISH("Spanglish",
+        "Speak in Spanglish - mix Spanish and English naturally. Use phrases like 'ay dios mio', 'mira', 'oye', 'no mames', 'que onda'. Switch between languages mid-sentence. Be expressive and warm.",
+        new String[]{"Ay dios mio", "Mira", "Oye", "Que onda", "No manches", "Andale", "Eso si que es", "Orale", "Hijole"}),
+
+    // AAVE/Ebonics - African American Vernacular English
+    AAVE("AAVE",
+        "Speak in African American Vernacular English (AAVE). Use phrases like 'finna', 'ain't', 'tryna', 'lowkey', 'deadass', 'no cap'. Be expressive, use double negatives naturally. Keep it real and authentic.",
+        new String[]{"Finna", "Ain't even", "Tryna", "Deadass", "No cap", "On god", "Bet", "Facts", "Say less", "Ion know"}),
+
+    // Modern US Slang / Gen Z
+    MODERN_SLANG("Modern",
+        "Speak using modern Gen Z / millennial slang. Use 'bruh', 'lowkey', 'highkey', 'vibe', 'slay', 'bussin', 'no cap', 'sus'. Be casual and chill. Reference memes if appropriate.",
+        new String[]{"Bruh", "Lowkey", "Highkey", "That's bussin", "No cap", "Sus", "Slay", "It's giving", "Fr fr", "Ong"}),
+
+    // Urban/Street
+    URBAN("Urban",
+        "Speak in casual urban/street dialect. Keep it real, be direct. Use 'yo', 'word', 'nah', 'facts', 'bet'. Reference the grind and hustle.",
+        new String[]{"Yo", "Word", "Nah fam", "Facts", "Bet", "Real talk", "That's cap", "My guy", "G", "What's good"}),
+
+    // Surfer/Cali
+    SURFER("Surfer",
+        "Speak like a laid-back California surfer. Use 'dude', 'gnarly', 'totally', 'stoked', 'rad'. Be chill and positive vibes only.",
+        new String[]{"Dude", "Gnarly", "Totally", "Stoked", "Rad", "Bro", "Sick", "Chill", "Vibes"}),
+
+    // NYC/Brooklyn
+    NYC("NYC",
+        "Speak with a New York City accent and attitude. Use 'deadass', 'mad', 'brick', 'bodega', reference the city. Be direct and fast-talking.",
+        new String[]{"Deadass", "Mad", "B", "Son", "Real talk", "Nah mean", "Word to", "Ayo", "Facts B"});
 
     private final String name;
     private final String prompt;
@@ -91,10 +121,13 @@ public enum Dialect {
     }
 
     /**
-     * Get a random dialect for general NPCs
+     * Get a random dialect for general NPCs - now includes modern dialects
      */
     public static Dialect getRandomGeneral() {
-        Dialect[] general = {STANDARD, SOUTHERN, NEW_ENGLAND, BRITISH, SCOTTISH, IRISH, GRUFF, NOBLE};
+        Dialect[] general = {
+            STANDARD, SOUTHERN, NEW_ENGLAND, BRITISH, SCOTTISH, IRISH, GRUFF, NOBLE,
+            SPANGLISH, AAVE, MODERN_SLANG, URBAN, SURFER, NYC
+        };
         return general[random.nextInt(general.length)];
     }
 
@@ -106,13 +139,43 @@ public enum Dialect {
 
         return switch (faction.toLowerCase()) {
             case "cultists" -> random.nextBoolean() ? CRYPTIC : ZEALOUS;
-            case "bandits", "raiders" -> random.nextInt(3) == 0 ? PIRATE : getRandomGeneral();
-            case "merchants" -> random.nextInt(3) == 0 ? NOBLE : getRandomGeneral();
+            case "bandits", "raiders" -> {
+                int roll = random.nextInt(5);
+                yield switch (roll) {
+                    case 0 -> PIRATE;
+                    case 1 -> URBAN;
+                    case 2 -> NYC;
+                    default -> getRandomGeneral();
+                };
+            }
+            case "merchants" -> {
+                int roll = random.nextInt(4);
+                yield switch (roll) {
+                    case 0 -> NOBLE;
+                    case 1 -> SPANGLISH;
+                    case 2 -> NYC;
+                    default -> getRandomGeneral();
+                };
+            }
             case "guards" -> random.nextInt(3) == 0 ? GRUFF : getRandomGeneral();
             case "villagers" -> getRandomGeneral();
             case "wanderers" -> getRandomGeneral();
             default -> getRandomGeneral();
         };
+    }
+
+    /**
+     * Check if this dialect uses Spanish names
+     */
+    public boolean usesSpanishNames() {
+        return this == SPANGLISH;
+    }
+
+    /**
+     * Check if this dialect is modern/contemporary
+     */
+    public boolean isModern() {
+        return this == AAVE || this == MODERN_SLANG || this == URBAN || this == NYC || this == SURFER;
     }
 
     /**

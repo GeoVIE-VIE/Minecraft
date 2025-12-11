@@ -63,6 +63,33 @@ public class NPCManager {
             "Frostborn", "Sunweaver", "Moonblade", "Earthwalker", "Starfall", "Riverwind"
     };
 
+    // Spanish names
+    private static final String[] SPANISH_FIRST_NAMES = {
+            "Carlos", "Maria", "Jose", "Sofia", "Miguel", "Isabella", "Diego", "Valentina",
+            "Alejandro", "Camila", "Luis", "Elena", "Antonio", "Rosa", "Ricardo", "Carmen",
+            "Roberto", "Lucia", "Javier", "Ana", "Fernando", "Gabriela", "Pedro", "Marisol"
+    };
+
+    private static final String[] SPANISH_LAST_NAMES = {
+            "Garcia", "Rodriguez", "Martinez", "Lopez", "Hernandez", "Gonzalez", "Ramirez",
+            "Sanchez", "Torres", "Rivera", "Flores", "Morales", "Ortiz", "Castillo", "Reyes",
+            "Cruz", "Mendoza", "Delgado", "Vargas", "Santos"
+    };
+
+    // Urban/Modern names
+    private static final String[] MODERN_FIRST_NAMES = {
+            "Deshawn", "Aaliyah", "Tyrone", "Shaniqua", "Marcus", "Destiny", "Jaylen", "Diamond",
+            "Terrell", "Jasmine", "DeAndre", "Keisha", "Malik", "Tiffany", "Andre", "Latoya",
+            "Devon", "Brianna", "Chris", "Ashley", "Tyler", "Jordan", "Alex", "Morgan",
+            "Brandon", "Brittany", "Kyle", "Madison", "Jake", "Taylor", "Mike", "Nikki"
+    };
+
+    private static final String[] MODERN_LAST_NAMES = {
+            "Johnson", "Williams", "Brown", "Jones", "Davis", "Miller", "Wilson", "Moore",
+            "Taylor", "Anderson", "Thomas", "Jackson", "White", "Harris", "Martin", "Thompson",
+            "Washington", "King", "Scott", "Green", "Baker", "Adams", "Nelson", "Hill"
+    };
+
     public NPCManager(AICompanions plugin, DatabaseManager database, AIManager aiManager, FactionManager factionManager) {
         this.plugin = plugin;
         this.database = database;
@@ -270,15 +297,84 @@ public class NPCManager {
     }
 
     /**
-     * Create a random NPC
+     * Create a random NPC with dialect-appropriate name
      */
     public AINpc createRandomNPC(Location location, String factionName) {
-        String name = generateRandomName();
-        return createNPC(name, factionName, location);
+        // Determine dialect first so we can pick appropriate name
+        Dialect dialect = Dialect.getForFaction(factionName);
+        String name = generateNameForDialect(dialect);
+
+        // Create NPC with the dialect-appropriate name
+        UUID uuid = UUID.randomUUID();
+        AINpc npc = new AINpc(uuid, name);
+
+        // Set faction
+        Faction faction = factionManager.getFaction(factionName);
+        if (faction != null) {
+            npc.setFaction(faction.getName());
+            npc.setHostile(faction.isHostileByDefault());
+        } else {
+            npc.setFaction("Wanderers");
+        }
+
+        // Set random personality based on faction
+        npc.setPersonality(getPersonalityForFaction(factionName));
+
+        // Assign the pre-determined dialect
+        npc.setDialect(dialect);
+
+        // Configure behavior based on faction
+        configureFactionBehavior(npc, factionName);
+
+        // Set location
+        npc.setSpawnLocation(location);
+        npc.setCurrentLocation(location);
+
+        // Generate backstory asynchronously
+        aiManager.generateBackstory(name, npc.getFaction(), npc.getPersonality())
+                .thenAccept(backstory -> {
+                    npc.setBackstory(backstory);
+                    database.saveNPC(npc);
+                    plugin.debug("Generated backstory for " + name);
+                });
+
+        // Set a temporary backstory until AI generates one
+        npc.setBackstory(getDefaultBackstoryForFaction(factionName, name));
+
+        // Spawn the entity
+        spawnEntity(npc);
+
+        // Register
+        npcs.put(uuid, npc);
+        database.saveNPC(npc);
+
+        return npc;
     }
 
     /**
-     * Generate a random name
+     * Generate a random name appropriate for the dialect
+     */
+    public String generateNameForDialect(Dialect dialect) {
+        Random random = new Random();
+
+        if (dialect.usesSpanishNames()) {
+            // Spanglish dialect gets Spanish names
+            String firstName = SPANISH_FIRST_NAMES[random.nextInt(SPANISH_FIRST_NAMES.length)];
+            String lastName = SPANISH_LAST_NAMES[random.nextInt(SPANISH_LAST_NAMES.length)];
+            return firstName + " " + lastName;
+        } else if (dialect.isModern()) {
+            // Modern dialects (AAVE, Urban, NYC, Modern Slang, Surfer) get contemporary names
+            String firstName = MODERN_FIRST_NAMES[random.nextInt(MODERN_FIRST_NAMES.length)];
+            String lastName = MODERN_LAST_NAMES[random.nextInt(MODERN_LAST_NAMES.length)];
+            return firstName + " " + lastName;
+        } else {
+            // Fantasy/traditional dialects get fantasy names
+            return generateRandomName();
+        }
+    }
+
+    /**
+     * Generate a random fantasy-style name
      */
     public String generateRandomName() {
         Random random = new Random();
@@ -520,6 +616,37 @@ public class NPCManager {
         plugin.getLogger().info("[NPC Search] " + alive + " alive, " + spawned + " spawned, " + inWorld + " in same world. Found: " + (nearest != null ? nearest.getName() + " at " + String.format("%.1f", nearestDistance) + " blocks" : "NONE"));
 
         return nearest;
+    }
+
+    /**
+     * Get all NPCs near a location, sorted by distance (closest first)
+     * Useful for handling crowded areas where multiple NPCs are nearby
+     */
+    public List<AINpc> getNPCsNearLocation(Location location, double maxDistance) {
+        List<Map.Entry<AINpc, Double>> npcDistances = new ArrayList<>();
+
+        for (AINpc npc : npcs.values()) {
+            if (!npc.isAlive() || !npc.isSpawned()) continue;
+
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null || !npcLoc.getWorld().equals(location.getWorld())) continue;
+
+            double distance = npcLoc.distance(location);
+            if (distance <= maxDistance) {
+                npcDistances.add(new AbstractMap.SimpleEntry<>(npc, distance));
+            }
+        }
+
+        // Sort by distance (closest first)
+        npcDistances.sort(Comparator.comparingDouble(Map.Entry::getValue));
+
+        // Extract just the NPCs
+        List<AINpc> result = new ArrayList<>();
+        for (Map.Entry<AINpc, Double> entry : npcDistances) {
+            result.add(entry.getKey());
+        }
+
+        return result;
     }
 
     /**

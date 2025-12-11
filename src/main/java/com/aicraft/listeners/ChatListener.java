@@ -42,6 +42,9 @@ public class ChatListener implements Listener {
     // Track pending quest offers (Player UUID -> Quest)
     private final Map<UUID, Quest> pendingQuestOffers = new HashMap<>();
 
+    // Track numbered NPC list for crowded selection (Player UUID -> List of NPCs)
+    private final Map<UUID, List<AINpc>> numberedSelections = new HashMap<>();
+
     // Chat prefix to talk to NPCs (configurable)
     private static final String NPC_CHAT_PREFIX = "@";
 
@@ -98,11 +101,11 @@ public class ChatListener implements Listener {
 
     /**
      * Handle chat directed at NPCs
-     * Supports: @message (nearest), @NPCName message, @NPCName: message
+     * Supports: @message (nearest), @NPCName message, @NPCName: message, @1/@2/@3 (numbered selection)
      */
     private void handleNPCChat(Player player, String message) {
         if (message.isEmpty()) {
-            showNearbyNPCs(player);
+            showNearbyNPCsNumbered(player);
             return;
         }
 
@@ -118,59 +121,111 @@ public class ChatListener implements Listener {
         AINpc npc = null;
         String actualMessage = message;
 
-        // Check if player has a selected NPC (from right-click)
-        UUID selectedId = selectedNPCs.get(player.getUniqueId());
-        if (selectedId != null) {
-            npc = npcManager.getNPC(selectedId);
-            if (npc != null && npc.isAlive() && npc.isSpawned()) {
-                // Check still in range
-                if (player.getLocation().distance(npc.getCurrentLocation()) > maxDistance) {
-                    npc = null;
-                    selectedNPCs.remove(player.getUniqueId());
+        // Check for numbered selection (@1, @2, etc.) from crowded list
+        String[] parts = message.split("\\s+", 2);
+        String firstWord = parts[0].replace(":", "").trim();
+
+        if (firstWord.matches("\\d+")) {
+            // Player is selecting by number
+            int selection = Integer.parseInt(firstWord);
+            List<AINpc> numberedList = numberedSelections.get(player.getUniqueId());
+
+            if (numberedList != null && selection >= 1 && selection <= numberedList.size()) {
+                npc = numberedList.get(selection - 1); // 1-indexed for user
+                if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                    actualMessage = parts[1].trim();
+                } else {
+                    // Just selected by number, show info
+                    showNPCInfo(player, npc);
+                    selectedNPCs.put(player.getUniqueId(), npc.getUuid());
+                    return;
                 }
+            } else if (numberedList == null) {
+                player.sendMessage(ChatColor.GRAY + "Type @ to see a numbered list of nearby NPCs first.");
+                return;
             } else {
-                npc = null;
+                player.sendMessage(ChatColor.RED + "Invalid selection. Use a number between 1 and " + numberedList.size());
+                return;
             }
         }
 
-        // If no selected NPC, try to parse @NPCName from message
+        // Check if player has a selected NPC (from right-click or previous @)
         if (npc == null) {
-            // First, try to find nearest NPC (most common case: @hello)
-            AINpc nearestNpc = npcManager.getNearestNPC(player.getLocation(), maxDistance);
+            UUID selectedId = selectedNPCs.get(player.getUniqueId());
+            if (selectedId != null) {
+                npc = npcManager.getNPC(selectedId);
+                if (npc != null && npc.isAlive() && npc.isSpawned()) {
+                    // Check still in range
+                    if (player.getLocation().distance(npc.getCurrentLocation()) > maxDistance) {
+                        npc = null;
+                        selectedNPCs.remove(player.getUniqueId());
+                    }
+                } else {
+                    npc = null;
+                }
+            }
+        }
 
-            // Check if first word might be an NPC name (for @Bob hello syntax)
-            String[] parts = message.split("\\s+", 2);
-            if (parts.length >= 1 && !parts[0].isEmpty()) {
-                String potentialName = parts[0].replace(":", "").trim();
+        // If no selected NPC, try to find one
+        if (npc == null) {
+            // Get all nearby NPCs sorted by distance
+            List<AINpc> nearbyNPCs = npcManager.getNPCsNearLocation(player.getLocation(), maxDistance);
 
-                // Only try name matching if it looks like a name (not a greeting)
-                AINpc namedNpc = findNPCByName(player, potentialName, maxDistance);
+            // Check if there are multiple NPCs in close proximity (crowded)
+            if (nearbyNPCs.size() > 1) {
+                // Check if first two are within 3 blocks of each other (crowded)
+                AINpc first = nearbyNPCs.get(0);
+                AINpc second = nearbyNPCs.get(1);
+                double distBetween = first.getCurrentLocation().distance(second.getCurrentLocation());
 
+                if (distBetween < 3.0) {
+                    // Try to match by name first in crowded situations
+                    AINpc namedNpc = findNPCByName(player, firstWord, maxDistance);
+                    if (namedNpc != null) {
+                        npc = namedNpc;
+                        if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                            actualMessage = parts[1].trim();
+                        } else {
+                            showNPCInfo(player, npc);
+                            selectedNPCs.put(player.getUniqueId(), npc.getUuid());
+                            return;
+                        }
+                    } else {
+                        // Check line of sight - prefer NPC player is looking at
+                        AINpc lookingAt = getNPCPlayerIsLookingAt(player, nearbyNPCs);
+                        if (lookingAt != null) {
+                            npc = lookingAt;
+                            actualMessage = message;
+                        } else {
+                            // Still crowded and can't determine target, show numbered list
+                            showNearbyNPCsNumbered(player);
+                            player.sendMessage(ChatColor.YELLOW + "Multiple NPCs nearby! Use @<name> or @<number> to specify who you're talking to.");
+                            player.sendMessage(ChatColor.GRAY + "Example: @" + first.getName().split(" ")[0] + " hello  OR  @1 hello");
+                            return;
+                        }
+                    }
+                } else {
+                    // Not crowded, use nearest
+                    npc = first;
+                }
+            } else if (nearbyNPCs.size() == 1) {
+                // Only one NPC, easy choice
+                npc = nearbyNPCs.get(0);
+            } else {
+                // Try name match as last resort
+                AINpc namedNpc = findNPCByName(player, firstWord, maxDistance);
                 if (namedNpc != null) {
-                    // Found NPC by name
                     npc = namedNpc;
                     if (parts.length > 1 && !parts[1].trim().isEmpty()) {
                         actualMessage = parts[1].trim();
-                    } else {
-                        // Just said name, show info
-                        showNPCInfo(player, npc);
-                        return;
                     }
-                } else {
-                    // No name match, use nearest NPC with full message
-                    npc = nearestNpc;
-                    actualMessage = message;
                 }
-            } else {
-                // Empty or weird message, use nearest
-                npc = nearestNpc;
-                actualMessage = message;
             }
         }
 
         if (npc == null) {
             player.sendMessage(ChatColor.GRAY + "*No one is nearby to hear you*");
-            showNearbyNPCs(player);
+            showNearbyNPCsNumbered(player);
             return;
         }
 
@@ -183,6 +238,34 @@ public class ChatListener implements Listener {
         activeConversations.put(player.getUniqueId(), npc.getUuid());
         selectedNPCs.put(player.getUniqueId(), npc.getUuid());
         processNPCConversation(player, npc, actualMessage);
+    }
+
+    /**
+     * Get the NPC the player is looking at (line-of-sight check)
+     */
+    private AINpc getNPCPlayerIsLookingAt(Player player, List<AINpc> candidates) {
+        // Get player's view direction
+        org.bukkit.util.Vector playerDirection = player.getLocation().getDirection().normalize();
+        AINpc bestMatch = null;
+        double bestScore = 0.5; // Minimum dot product (within ~60 degree cone)
+
+        for (AINpc npc : candidates) {
+            if (npc.getCurrentLocation() == null) continue;
+
+            // Get direction from player to NPC
+            org.bukkit.util.Vector toNpc = npc.getCurrentLocation().toVector()
+                    .subtract(player.getLocation().toVector()).normalize();
+
+            // Dot product - higher means more aligned with player's view
+            double dot = playerDirection.dot(toNpc);
+
+            if (dot > bestScore) {
+                bestScore = dot;
+                bestMatch = npc;
+            }
+        }
+
+        return bestMatch;
     }
 
     /**
@@ -217,36 +300,36 @@ public class ChatListener implements Listener {
     }
 
     /**
-     * Show list of nearby NPCs
+     * Show numbered list of nearby NPCs for easy selection
      */
-    private void showNearbyNPCs(Player player) {
+    private void showNearbyNPCsNumbered(Player player) {
         double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 10);
-        List<AINpc> nearbyNPCs = new ArrayList<>();
-
-        for (AINpc npc : npcManager.getAllNPCs()) {
-            if (!npc.isAlive() || !npc.isSpawned()) continue;
-            if (npc.getCurrentLocation() == null) continue;
-
-            double distance = player.getLocation().distance(npc.getCurrentLocation());
-            if (distance <= maxDistance) {
-                nearbyNPCs.add(npc);
-            }
-        }
+        List<AINpc> nearbyNPCs = npcManager.getNPCsNearLocation(player.getLocation(), maxDistance);
 
         if (nearbyNPCs.isEmpty()) {
             player.sendMessage(ChatColor.GRAY + "No NPCs nearby. Try getting closer to someone.");
+            numberedSelections.remove(player.getUniqueId());
             return;
         }
 
+        // Store the list for numbered selection
+        numberedSelections.put(player.getUniqueId(), nearbyNPCs);
+
         player.sendMessage(ChatColor.GOLD + "═══ Nearby NPCs ═══");
+        int num = 1;
         for (AINpc npc : nearbyNPCs) {
             double distance = player.getLocation().distance(npc.getCurrentLocation());
-            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + npc.getName() +
-                    ChatColor.GRAY + " (" + npc.getFaction() + ") - " +
+            String dialectInfo = npc.getDialect() != null ? " [" + npc.getDialect().getName() + "]" : "";
+            player.sendMessage(ChatColor.YELLOW + "" + num + ". " + ChatColor.WHITE + npc.getName() +
+                    ChatColor.GRAY + " (" + npc.getFaction() + ")" + dialectInfo + " - " +
                     String.format("%.1f", distance) + " blocks");
+            num++;
         }
-        player.sendMessage(ChatColor.GRAY + "Use @<name> <message> to talk to a specific NPC");
-        player.sendMessage(ChatColor.GRAY + "Or right-click an NPC to select them");
+        player.sendMessage("");
+        player.sendMessage(ChatColor.GRAY + "To talk, use one of these:");
+        player.sendMessage(ChatColor.WHITE + "  @<number> <message>" + ChatColor.GRAY + " - e.g. @1 hello");
+        player.sendMessage(ChatColor.WHITE + "  @<name> <message>" + ChatColor.GRAY + " - e.g. @" + nearbyNPCs.get(0).getName().split(" ")[0] + " hello");
+        player.sendMessage(ChatColor.WHITE + "  @<message>" + ChatColor.GRAY + " - talks to whoever you're looking at");
     }
 
     /**
