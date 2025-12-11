@@ -272,7 +272,7 @@ public class NPCTelevision {
                 Player player = (Player) entity;
 
                 // Check line of sight (roughly)
-                if (!player.hasLineOfSight(tvLoc.getBlock())) continue;
+                if (!player.hasLineOfSight(tvLoc)) continue;
 
                 // Show TV content
                 showTVContent(player, tvLoc, npcId);
