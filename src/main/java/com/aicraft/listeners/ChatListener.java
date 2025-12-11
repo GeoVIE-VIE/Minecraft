@@ -135,30 +135,37 @@ public class ChatListener implements Listener {
 
         // If no selected NPC, try to parse @NPCName from message
         if (npc == null) {
-            // Check for @NPCName: message or @NPCName message pattern
-            String[] parts = message.split("[:\\s]", 2);
-            if (parts.length >= 1) {
-                String potentialName = parts[0].trim();
+            // First, try to find nearest NPC (most common case: @hello)
+            AINpc nearestNpc = npcManager.getNearestNPC(player.getLocation(), maxDistance);
 
-                // Try to find NPC by name (partial match)
-                npc = findNPCByName(player, potentialName, maxDistance);
+            // Check if first word might be an NPC name (for @Bob hello syntax)
+            String[] parts = message.split("\\s+", 2);
+            if (parts.length >= 1 && !parts[0].isEmpty()) {
+                String potentialName = parts[0].replace(":", "").trim();
 
-                if (npc != null && parts.length > 1) {
-                    // Found NPC by name, use rest as message
-                    actualMessage = parts[1].trim();
-                    if (actualMessage.isEmpty()) {
+                // Only try name matching if it looks like a name (not a greeting)
+                AINpc namedNpc = findNPCByName(player, potentialName, maxDistance);
+
+                if (namedNpc != null) {
+                    // Found NPC by name
+                    npc = namedNpc;
+                    if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+                        actualMessage = parts[1].trim();
+                    } else {
                         // Just said name, show info
                         showNPCInfo(player, npc);
                         return;
                     }
+                } else {
+                    // No name match, use nearest NPC with full message
+                    npc = nearestNpc;
+                    actualMessage = message;
                 }
+            } else {
+                // Empty or weird message, use nearest
+                npc = nearestNpc;
+                actualMessage = message;
             }
-        }
-
-        // If still no NPC, fall back to nearest
-        if (npc == null) {
-            npc = npcManager.getNearestNPC(player.getLocation(), maxDistance);
-            actualMessage = message; // Use full message
         }
 
         if (npc == null) {

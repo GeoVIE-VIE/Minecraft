@@ -489,11 +489,26 @@ public class NPCManager {
         AINpc nearest = null;
         double nearestDistance = maxDistance;
 
+        plugin.getLogger().info("[NPC Search] Looking for nearest NPC. Total NPCs: " + npcs.size() + ", maxDistance: " + maxDistance);
+
+        int alive = 0, spawned = 0, inWorld = 0;
+
         for (AINpc npc : npcs.values()) {
-            if (!npc.isAlive() || !npc.isSpawned()) continue;
+            if (!npc.isAlive()) {
+                continue;
+            }
+            alive++;
+
+            if (!npc.isSpawned()) {
+                continue;
+            }
+            spawned++;
 
             Location npcLoc = npc.getCurrentLocation();
-            if (npcLoc == null || !npcLoc.getWorld().equals(location.getWorld())) continue;
+            if (npcLoc == null || !npcLoc.getWorld().equals(location.getWorld())) {
+                continue;
+            }
+            inWorld++;
 
             double distance = npcLoc.distance(location);
             if (distance < nearestDistance) {
@@ -501,6 +516,8 @@ public class NPCManager {
                 nearestDistance = distance;
             }
         }
+
+        plugin.getLogger().info("[NPC Search] " + alive + " alive, " + spawned + " spawned, " + inWorld + " in same world. Found: " + (nearest != null ? nearest.getName() + " at " + String.format("%.1f", nearestDistance) + " blocks" : "NONE"));
 
         return nearest;
     }
