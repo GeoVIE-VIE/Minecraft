@@ -38,6 +38,12 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Check permission - only ops or players with aicompanions.admin can use NPC commands
+        if (!sender.isOp() && !sender.hasPermission("aicompanions.admin")) {
+            sender.sendMessage(ChatColor.RED + "You don't have permission to manage NPCs.");
+            return true;
+        }
+
         if (args.length == 0) {
             showHelp(sender);
             return true;
