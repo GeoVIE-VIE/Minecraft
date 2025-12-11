@@ -13,6 +13,8 @@ import com.aicraft.memory.MemoryManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
+import com.aicraft.npcs.building.NPCHomeBuilder;
+import com.aicraft.npcs.social.NPCSocialManager;
 import com.aicraft.quests.QuestManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -41,6 +43,9 @@ public class AICompanions extends JavaPlugin {
     private WanderingManager wanderingManager;
     private NPCSpawner npcSpawner;
     private QuestTrackerGUI questTrackerGUI;
+    private NPCSocialManager socialManager;
+    private NPCHomeBuilder homeBuilder;
+    private ChatListener chatListener;
 
     @Override
     public void onEnable() {
@@ -109,6 +114,16 @@ public class AICompanions extends JavaPlugin {
             npcSpawner.stop();
         }
 
+        // Stop social manager
+        if (socialManager != null) {
+            socialManager.stop();
+        }
+
+        // Stop home builder
+        if (homeBuilder != null) {
+            homeBuilder.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -139,6 +154,12 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing NPC spawner...");
         npcSpawner = new NPCSpawner(this, npcManager, factionManager);
+
+        getLogger().info("Initializing NPC social manager...");
+        socialManager = new NPCSocialManager(this, npcManager);
+
+        getLogger().info("Initializing NPC home builder...");
+        homeBuilder = new NPCHomeBuilder(this, npcManager);
     }
 
     private void registerCommands() {
@@ -160,7 +181,9 @@ public class AICompanions extends JavaPlugin {
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new ChatListener(this, npcManager, aiManager, memoryManager), this);
+        // Store ChatListener reference so PlayerInteractListener can access it
+        chatListener = new ChatListener(this, npcManager, aiManager, memoryManager);
+        getServer().getPluginManager().registerEvents(chatListener, this);
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
         getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
@@ -191,6 +214,16 @@ public class AICompanions extends JavaPlugin {
         // Start auto-spawning NPCs
         if (getConfig().getBoolean("spawning.enabled", true)) {
             npcSpawner.start();
+        }
+
+        // Start NPC social interactions (relationships, cultist chanting)
+        if (getConfig().getBoolean("npcs.social.enabled", true)) {
+            socialManager.start();
+        }
+
+        // Start NPC home building
+        if (getConfig().getBoolean("npcs.building.enabled", true)) {
+            homeBuilder.start();
         }
     }
 
@@ -236,6 +269,18 @@ public class AICompanions extends JavaPlugin {
 
     public NPCSpawner getNPCSpawner() {
         return npcSpawner;
+    }
+
+    public NPCSocialManager getSocialManager() {
+        return socialManager;
+    }
+
+    public NPCHomeBuilder getHomeBuilder() {
+        return homeBuilder;
+    }
+
+    public ChatListener getChatListener() {
+        return chatListener;
     }
 
     public boolean isDebug() {

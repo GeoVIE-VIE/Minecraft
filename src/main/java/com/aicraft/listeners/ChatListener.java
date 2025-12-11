@@ -8,19 +8,22 @@ import com.aicraft.npcs.NPCManager;
 import com.aicraft.quests.Quest;
 import com.aicraft.quests.QuestManager;
 import org.bukkit.ChatColor;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Handles player chat for NPC conversations
- * Players can talk to nearby NPCs by using a prefix or by being in conversation mode
+ * Players can talk to NPCs using:
+ * - @message - Talks to nearest NPC
+ * - @NPCName message - Talks to specific NPC by name
+ * - @NPCName: message - Alternative syntax
+ * - Right-click NPC then type normally
  */
 public class ChatListener implements Listener {
 
@@ -32,6 +35,9 @@ public class ChatListener implements Listener {
 
     // Track which players are in conversation with which NPCs
     private final Map<UUID, UUID> activeConversations = new HashMap<>();
+
+    // Track selected NPCs (from right-click)
+    private final Map<UUID, UUID> selectedNPCs = new HashMap<>();
 
     // Track pending quest offers (Player UUID -> Quest)
     private final Map<UUID, Quest> pendingQuestOffers = new HashMap<>();
@@ -91,11 +97,12 @@ public class ChatListener implements Listener {
     }
 
     /**
-     * Handle chat directed at nearby NPCs
+     * Handle chat directed at NPCs
+     * Supports: @message (nearest), @NPCName message, @NPCName: message
      */
     private void handleNPCChat(Player player, String message) {
         if (message.isEmpty()) {
-            player.sendMessage(ChatColor.GRAY + "Use @<message> to talk to nearby NPCs");
+            showNearbyNPCs(player);
             return;
         }
 
@@ -107,12 +114,56 @@ public class ChatListener implements Listener {
             return;
         }
 
-        // Find nearest NPC
-        double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 5);
-        AINpc npc = npcManager.getNearestNPC(player.getLocation(), maxDistance);
+        double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 10);
+        AINpc npc = null;
+        String actualMessage = message;
+
+        // Check if player has a selected NPC (from right-click)
+        UUID selectedId = selectedNPCs.get(player.getUniqueId());
+        if (selectedId != null) {
+            npc = npcManager.getNPC(selectedId);
+            if (npc != null && npc.isAlive() && npc.isSpawned()) {
+                // Check still in range
+                if (player.getLocation().distance(npc.getCurrentLocation()) > maxDistance) {
+                    npc = null;
+                    selectedNPCs.remove(player.getUniqueId());
+                }
+            } else {
+                npc = null;
+            }
+        }
+
+        // If no selected NPC, try to parse @NPCName from message
+        if (npc == null) {
+            // Check for @NPCName: message or @NPCName message pattern
+            String[] parts = message.split("[:\\s]", 2);
+            if (parts.length >= 1) {
+                String potentialName = parts[0].trim();
+
+                // Try to find NPC by name (partial match)
+                npc = findNPCByName(player, potentialName, maxDistance);
+
+                if (npc != null && parts.length > 1) {
+                    // Found NPC by name, use rest as message
+                    actualMessage = parts[1].trim();
+                    if (actualMessage.isEmpty()) {
+                        // Just said name, show info
+                        showNPCInfo(player, npc);
+                        return;
+                    }
+                }
+            }
+        }
+
+        // If still no NPC, fall back to nearest
+        if (npc == null) {
+            npc = npcManager.getNearestNPC(player.getLocation(), maxDistance);
+            actualMessage = message; // Use full message
+        }
 
         if (npc == null) {
             player.sendMessage(ChatColor.GRAY + "*No one is nearby to hear you*");
+            showNearbyNPCs(player);
             return;
         }
 
@@ -123,7 +174,101 @@ public class ChatListener implements Listener {
 
         // Start/continue conversation
         activeConversations.put(player.getUniqueId(), npc.getUuid());
-        processNPCConversation(player, npc, message);
+        selectedNPCs.put(player.getUniqueId(), npc.getUuid());
+        processNPCConversation(player, npc, actualMessage);
+    }
+
+    /**
+     * Find NPC by name within range
+     */
+    private AINpc findNPCByName(Player player, String name, double maxDistance) {
+        if (name == null || name.isEmpty()) return null;
+
+        String searchName = name.toLowerCase();
+        AINpc bestMatch = null;
+        double bestDistance = maxDistance;
+
+        for (AINpc npc : npcManager.getAllNPCs()) {
+            if (!npc.isAlive() || !npc.isSpawned()) continue;
+            if (npc.getCurrentLocation() == null) continue;
+
+            String npcName = npc.getName().toLowerCase();
+            // Check if name matches (full name or first name)
+            if (npcName.equals(searchName) ||
+                    npcName.startsWith(searchName) ||
+                    npcName.split(" ")[0].equals(searchName)) {
+
+                double distance = player.getLocation().distance(npc.getCurrentLocation());
+                if (distance < bestDistance) {
+                    bestMatch = npc;
+                    bestDistance = distance;
+                }
+            }
+        }
+
+        return bestMatch;
+    }
+
+    /**
+     * Show list of nearby NPCs
+     */
+    private void showNearbyNPCs(Player player) {
+        double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 10);
+        List<AINpc> nearbyNPCs = new ArrayList<>();
+
+        for (AINpc npc : npcManager.getAllNPCs()) {
+            if (!npc.isAlive() || !npc.isSpawned()) continue;
+            if (npc.getCurrentLocation() == null) continue;
+
+            double distance = player.getLocation().distance(npc.getCurrentLocation());
+            if (distance <= maxDistance) {
+                nearbyNPCs.add(npc);
+            }
+        }
+
+        if (nearbyNPCs.isEmpty()) {
+            player.sendMessage(ChatColor.GRAY + "No NPCs nearby. Try getting closer to someone.");
+            return;
+        }
+
+        player.sendMessage(ChatColor.GOLD + "═══ Nearby NPCs ═══");
+        for (AINpc npc : nearbyNPCs) {
+            double distance = player.getLocation().distance(npc.getCurrentLocation());
+            player.sendMessage(ChatColor.YELLOW + "• " + ChatColor.WHITE + npc.getName() +
+                    ChatColor.GRAY + " (" + npc.getFaction() + ") - " +
+                    String.format("%.1f", distance) + " blocks");
+        }
+        player.sendMessage(ChatColor.GRAY + "Use @<name> <message> to talk to a specific NPC");
+        player.sendMessage(ChatColor.GRAY + "Or right-click an NPC to select them");
+    }
+
+    /**
+     * Show info about a specific NPC
+     */
+    private void showNPCInfo(Player player, AINpc npc) {
+        player.sendMessage(ChatColor.GOLD + "═══ " + npc.getName() + " ═══");
+        player.sendMessage(ChatColor.GRAY + "Faction: " + ChatColor.WHITE + npc.getFaction());
+        player.sendMessage(ChatColor.GRAY + "Mood: " + ChatColor.WHITE + npc.getCurrentMood());
+        if (npc.canGiveQuests()) {
+            player.sendMessage(ChatColor.GREEN + "This NPC can give quests!");
+        }
+        player.sendMessage(ChatColor.GRAY + "Say something to start a conversation.");
+    }
+
+    /**
+     * Select an NPC for conversation (called from right-click)
+     */
+    public void selectNPC(Player player, AINpc npc) {
+        selectedNPCs.put(player.getUniqueId(), npc.getUuid());
+        player.sendMessage(ChatColor.GREEN + "Now talking to " + ChatColor.GOLD + npc.getName());
+        player.sendMessage(ChatColor.GRAY + "Type your message (no @ needed) or use @<message>");
+    }
+
+    /**
+     * Clear NPC selection
+     */
+    public void clearSelection(Player player) {
+        selectedNPCs.remove(player.getUniqueId());
     }
 
     /**

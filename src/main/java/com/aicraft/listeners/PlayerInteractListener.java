@@ -3,6 +3,8 @@ package com.aicraft.listeners;
 import com.aicraft.AICompanions;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.social.NPCRelationship;
+import com.aicraft.npcs.social.NPCSocialManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -10,8 +12,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 
+import java.util.List;
+
 /**
  * Handles player interactions with NPCs (right-click)
+ * Right-clicking selects the NPC for conversation
  */
 public class PlayerInteractListener implements Listener {
 
@@ -39,8 +44,14 @@ public class PlayerInteractListener implements Listener {
             return;
         }
 
-        // Show NPC info and prompt for conversation
+        // Show NPC info and SELECT them for conversation
         showNPCInfo(player, npc);
+
+        // Select this NPC for conversation
+        ChatListener chatListener = plugin.getChatListener();
+        if (chatListener != null) {
+            chatListener.selectNPC(player, npc);
+        }
     }
 
     /**
@@ -50,6 +61,7 @@ public class PlayerInteractListener implements Listener {
         player.sendMessage("");
         player.sendMessage(ChatColor.GOLD + "═══════ " + npc.getName() + " ═══════");
         player.sendMessage(ChatColor.GRAY + "Faction: " + ChatColor.WHITE + npc.getFaction());
+        player.sendMessage(ChatColor.GRAY + "Dialect: " + ChatColor.WHITE + npc.getDialectName());
 
         if (npc.getPersonality() != null) {
             String shortPersonality = npc.getPersonality();
@@ -63,9 +75,20 @@ public class PlayerInteractListener implements Listener {
             player.sendMessage(ChatColor.GRAY + "Mood: " + ChatColor.WHITE + npc.getCurrentMood());
         }
 
+        // Show relationships if social manager exists
+        NPCSocialManager socialManager = plugin.getSocialManager();
+        if (socialManager != null) {
+            List<NPCRelationship> relationships = socialManager.getRelationships(npc.getUuid());
+            if (!relationships.isEmpty()) {
+                player.sendMessage(ChatColor.GRAY + "Relationships: " +
+                        ChatColor.WHITE + socialManager.getRelationshipSummary(npc));
+            }
+        }
+
         player.sendMessage("");
-        player.sendMessage(ChatColor.YELLOW + "Use " + ChatColor.WHITE + "@<message>" +
-                ChatColor.YELLOW + " to speak with " + npc.getName());
+        player.sendMessage(ChatColor.GREEN + "✓ " + npc.getName() + " selected!");
+        player.sendMessage(ChatColor.YELLOW + "Just type to talk, or use " +
+                ChatColor.WHITE + "@<message>");
 
         if (npc.canGiveQuests()) {
             player.sendMessage(ChatColor.GREEN + "This NPC may have quests available.");
