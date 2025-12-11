@@ -286,6 +286,20 @@ public class DatabaseManager {
         }
     }
 
+    /**
+     * Clear all NPCs from the database
+     */
+    public void clearAllNPCs() {
+        try (Statement stmt = connection.createStatement()) {
+            int deleted = stmt.executeUpdate("DELETE FROM npcs");
+            plugin.getLogger().info("Cleared " + deleted + " NPCs from database");
+            // Also clear related memories
+            stmt.executeUpdate("DELETE FROM memories");
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Failed to clear NPCs: " + e.getMessage());
+        }
+    }
+
     // === Faction Operations ===
 
     public void saveFaction(Faction faction) {

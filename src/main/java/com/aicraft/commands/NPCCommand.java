@@ -62,7 +62,11 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             case "setpersonality" -> handleSetPersonality(player, args);
             case "setfaction" -> handleSetFaction(player, args);
             case "regenerate" -> handleRegenerate(player, args);
-            case "clear" -> handleClear(player);
+            case "clear" -> handleClear(player, args);
+            case "clearall", "purge", "wipe" -> handleClearAll(player);
+            case "cleardead" -> handleClearDead(player);
+            case "respawnall" -> handleRespawnAll(player);
+            case "killall" -> handleKillAll(player);
             default -> showHelp(player);
         }
 
@@ -74,7 +78,6 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/npc create <name> [faction]" + ChatColor.GRAY + " - Create an NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc random [faction]" + ChatColor.GRAY + " - Create random NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc populate [count]" + ChatColor.GRAY + " - Auto-spawn NPCs nearby");
-        player.sendMessage(ChatColor.YELLOW + "/npc clear" + ChatColor.GRAY + " - Remove all NPCs");
         player.sendMessage(ChatColor.YELLOW + "/npc remove <name>" + ChatColor.GRAY + " - Remove an NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc list [faction]" + ChatColor.GRAY + " - List all NPCs");
         player.sendMessage(ChatColor.YELLOW + "/npc info <name>" + ChatColor.GRAY + " - Show NPC details");
@@ -82,6 +85,12 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         player.sendMessage(ChatColor.YELLOW + "/npc tp <name>" + ChatColor.GRAY + " - Teleport to NPC");
         player.sendMessage(ChatColor.YELLOW + "/npc setfaction <name> <faction>" + ChatColor.GRAY + " - Change faction");
         player.sendMessage(ChatColor.YELLOW + "/npc regenerate <name>" + ChatColor.GRAY + " - Regenerate backstory");
+        player.sendMessage(ChatColor.RED + "--- Bulk Operations ---");
+        player.sendMessage(ChatColor.YELLOW + "/npc clear [faction]" + ChatColor.GRAY + " - Remove NPCs (optionally by faction)");
+        player.sendMessage(ChatColor.YELLOW + "/npc clearall" + ChatColor.GRAY + " - Remove ALL NPCs and wipe database");
+        player.sendMessage(ChatColor.YELLOW + "/npc cleardead" + ChatColor.GRAY + " - Remove only dead NPCs");
+        player.sendMessage(ChatColor.YELLOW + "/npc respawnall" + ChatColor.GRAY + " - Respawn all NPCs");
+        player.sendMessage(ChatColor.YELLOW + "/npc killall" + ChatColor.GRAY + " - Kill all NPCs (they can respawn)");
         player.sendMessage(ChatColor.GOLD + "════════════════════════════════════");
     }
 
@@ -185,7 +194,26 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         return player.getLocation(); // Fallback
     }
 
-    private void handleClear(Player player) {
+    private void handleClear(Player player, String[] args) {
+        String faction = args.length > 1 ? args[1] : null;
+        int count = 0;
+
+        // Remove NPCs (optionally filtered by faction)
+        for (AINpc npc : new java.util.ArrayList<>(npcManager.getAllNPCs())) {
+            if (faction == null || npc.getFaction().equalsIgnoreCase(faction)) {
+                npcManager.removeNPC(npc.getUuid());
+                count++;
+            }
+        }
+
+        if (faction != null) {
+            player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs from faction: " + faction);
+        } else {
+            player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs.");
+        }
+    }
+
+    private void handleClearAll(Player player) {
         int count = npcManager.getNPCCount();
 
         // Remove all NPCs
@@ -193,7 +221,56 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             npcManager.removeNPC(npc.getUuid());
         }
 
-        player.sendMessage(ChatColor.GREEN + "Removed " + count + " NPCs.");
+        // Also clear the database
+        plugin.getDatabaseManager().clearAllNPCs();
+
+        player.sendMessage(ChatColor.GREEN + "Completely wiped " + count + " NPCs and cleared database.");
+        player.sendMessage(ChatColor.YELLOW + "Use /npc populate <count> to spawn fresh NPCs!");
+    }
+
+    private void handleClearDead(Player player) {
+        int count = 0;
+
+        for (AINpc npc : new java.util.ArrayList<>(npcManager.getAllNPCs())) {
+            if (!npc.isAlive()) {
+                npcManager.removeNPC(npc.getUuid());
+                count++;
+            }
+        }
+
+        player.sendMessage(ChatColor.GREEN + "Removed " + count + " dead NPCs.");
+    }
+
+    private void handleRespawnAll(Player player) {
+        int count = 0;
+
+        for (AINpc npc : npcManager.getAllNPCs()) {
+            if (!npc.isSpawned() && npc.getSpawnLocation() != null) {
+                npc.setAlive(true);
+                npc.setHealth(npc.getMaxHealth());
+                npcManager.spawnEntity(npc);
+                count++;
+            }
+        }
+
+        player.sendMessage(ChatColor.GREEN + "Respawned " + count + " NPCs.");
+    }
+
+    private void handleKillAll(Player player) {
+        int count = 0;
+
+        for (AINpc npc : npcManager.getAllNPCs()) {
+            if (npc.isAlive()) {
+                npc.setAlive(false);
+                npc.setHealth(0);
+                if (npc.getBukkitEntity() != null) {
+                    npc.getBukkitEntity().remove();
+                }
+                count++;
+            }
+        }
+
+        player.sendMessage(ChatColor.RED + "Killed " + count + " NPCs. They will respawn if enabled.");
     }
 
     private void handleRemove(Player player, String[] args) {
@@ -416,8 +493,9 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("create", "random", "remove", "list", "info",
-                    "teleport", "near", "setpersonality", "setfaction", "regenerate"));
+            completions.addAll(Arrays.asList("create", "random", "populate", "remove", "list", "info",
+                    "teleport", "near", "setpersonality", "setfaction", "regenerate",
+                    "clear", "clearall", "cleardead", "respawnall", "killall"));
         } else if (args.length == 2) {
             String sub = args[0].toLowerCase();
             if (sub.equals("remove") || sub.equals("info") || sub.equals("tp") ||
