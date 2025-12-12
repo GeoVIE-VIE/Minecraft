@@ -145,9 +145,15 @@ quests:
   types:
     - "fetch"      # Bring items to NPC
     - "kill"       # Defeat enemies
-    - "escort"     # Protect NPC during travel
+    - "build"      # Construct structures in an area
     - "explore"    # Discover locations
     - "delivery"   # Deliver items to another NPC
+
+  # Quest area detection radii (blocks)
+  # Build quests: how close blocks must be to quest center
+  build-radius: 25
+  # Explore quests: how close player must be to complete
+  explore-radius: 15
 
   # Reward multipliers
   rewards:

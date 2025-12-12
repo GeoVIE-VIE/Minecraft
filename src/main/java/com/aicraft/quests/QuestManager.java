@@ -37,6 +37,7 @@ public class QuestManager {
         QUEST_TYPES.put("kill", "Defeat enemies");
         QUEST_TYPES.put("explore", "Discover locations");
         QUEST_TYPES.put("delivery", "Deliver items to NPCs");
+        QUEST_TYPES.put("build", "Construct structures");
     }
 
     public QuestManager(AICompanions plugin, DatabaseManager database, AIManager aiManager) {
@@ -129,6 +130,32 @@ public class QuestManager {
                 quest.setTarget(target);
                 quest.setAmount(amount);
                 quest.setRewardXp(amount * 20);
+            }
+            case "build" -> {
+                String[][] buildTasks = {
+                        {"fence", "Build a Fence", "I need a fence around my property.", "Place %d fence blocks in the marked area"},
+                        {"wall", "Build a Wall", "We need protection! Build us a wall.", "Place %d wall or brick blocks in the area"},
+                        {"floor", "Lay Flooring", "My home needs new flooring.", "Place %d floor blocks (slabs, planks, or stone)"},
+                        {"wooden", "Wooden Construction", "I need wooden structures built.", "Place %d wooden blocks in the area"},
+                        {"any", "General Construction", "Help with construction in the area.", "Place %d blocks in the marked area"}
+                };
+                String[] task = buildTasks[random.nextInt(buildTasks.length)];
+                int amount = 10 + random.nextInt(20); // 10-30 blocks
+
+                quest.setTitle(task[1]);
+                quest.setDescription(task[2]);
+                quest.setObjective(String.format(task[3], amount));
+                quest.setTarget(task[0]);
+                quest.setAmount(amount);
+                quest.setRewardXp(amount * 5);
+            }
+            case "explore" -> {
+                quest.setTitle("Scout the Area");
+                quest.setDescription("I've heard rumors of an interesting location nearby. Go investigate!");
+                quest.setObjective("Find and explore the marked location");
+                quest.setTarget("location");
+                quest.setAmount(1);
+                quest.setRewardXp(100);
             }
             default -> {
                 quest.setTitle("A Simple Task");
@@ -223,6 +250,30 @@ public class QuestManager {
                 double z = playerLoc.getZ() + Math.sin(angle) * distance;
                 int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
                 quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+            }
+            case "build" -> {
+                // Build: Set target near the NPC (their "property")
+                if (quest.getNpcUuid() != null) {
+                    AINpc npc = plugin.getNPCManager().getNPC(quest.getNpcUuid());
+                    if (npc != null && npc.getCurrentLocation() != null) {
+                        Location npcLoc = npc.getCurrentLocation();
+                        // Build area is near the NPC, offset slightly
+                        double angle = random.nextDouble() * 2 * Math.PI;
+                        double distance = 5 + random.nextInt(10); // 5-15 blocks from NPC
+                        double x = npcLoc.getX() + Math.cos(angle) * distance;
+                        double z = npcLoc.getZ() + Math.sin(angle) * distance;
+                        int y = npcLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                        quest.setTargetLocation(new Location(npcLoc.getWorld(), x, y, z));
+                    }
+                } else {
+                    // Fallback to near player
+                    double angle = random.nextDouble() * 2 * Math.PI;
+                    double distance = 10 + random.nextInt(20); // 10-30 blocks away
+                    double x = playerLoc.getX() + Math.cos(angle) * distance;
+                    double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                    int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                    quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+                }
             }
         }
     }
