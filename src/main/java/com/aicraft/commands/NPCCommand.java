@@ -77,6 +77,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 handleKillAll(sender);
                 return true;
             }
+            case "nuke", "purgeworld" -> {
+                handleNuke(sender);
+                return true;
+            }
             case "remove", "delete" -> {
                 handleRemove(sender, args);
                 return true;
@@ -86,7 +90,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         // Commands that require a player
         if (!(sender instanceof Player player)) {
             sender.sendMessage(ChatColor.RED + "This command can only be used by players in-game.");
-            sender.sendMessage(ChatColor.GRAY + "Console commands: list, clear, clearall, cleardead, respawnall, killall, remove");
+            sender.sendMessage(ChatColor.GRAY + "Console commands: list, clear, clearall, cleardead, respawnall, killall, nuke, remove");
             return true;
         }
 
@@ -304,6 +308,61 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         }
 
         sender.sendMessage(ChatColor.RED + "Killed " + count + " NPCs. They will respawn if enabled.");
+    }
+
+    /**
+     * Nuclear option - removes ALL villager entities from all worlds AND clears database
+     * Use when NPCs are orphaned or not being tracked properly
+     */
+    private void handleNuke(CommandSender sender) {
+        sender.sendMessage(ChatColor.YELLOW + "Nuking all NPCs and villager entities...");
+
+        int trackedCount = 0;
+        int worldCount = 0;
+
+        // Step 1: Clear all tracked NPCs
+        for (AINpc npc : new java.util.ArrayList<>(npcManager.getAllNPCs())) {
+            if (npc.getBukkitEntity() != null && npc.getBukkitEntity().isValid()) {
+                npc.getBukkitEntity().remove();
+            }
+            npcManager.removeNPC(npc.getUuid());
+            trackedCount++;
+        }
+
+        // Step 2: Clear database
+        plugin.getDatabaseManager().clearAllNPCs();
+
+        // Step 3: Remove ALL villager entities from ALL worlds (catches orphans)
+        for (org.bukkit.World world : plugin.getServer().getWorlds()) {
+            for (org.bukkit.entity.Entity entity : world.getEntities()) {
+                if (entity instanceof org.bukkit.entity.Villager) {
+                    // Check if it has our metadata (is an AI NPC)
+                    if (entity.hasMetadata("ainpc")) {
+                        entity.remove();
+                        worldCount++;
+                    }
+                }
+            }
+        }
+
+        // Step 4: Also remove any with custom names that look like NPCs
+        for (org.bukkit.World world : plugin.getServer().getWorlds()) {
+            for (org.bukkit.entity.Entity entity : world.getEntities()) {
+                if (entity instanceof org.bukkit.entity.Villager villager) {
+                    if (villager.getCustomName() != null && !villager.getCustomName().isEmpty()) {
+                        // Has a custom name - likely one of ours
+                        villager.remove();
+                        worldCount++;
+                    }
+                }
+            }
+        }
+
+        sender.sendMessage(ChatColor.GREEN + "NUKE COMPLETE:");
+        sender.sendMessage(ChatColor.GRAY + "  - Removed " + trackedCount + " tracked NPCs");
+        sender.sendMessage(ChatColor.GRAY + "  - Removed " + worldCount + " world entities");
+        sender.sendMessage(ChatColor.GRAY + "  - Cleared database");
+        sender.sendMessage(ChatColor.YELLOW + "Use /npc spawn or wait for auto-spawn to create new NPCs.");
     }
 
     private void handleRemove(CommandSender sender, String[] args) {
