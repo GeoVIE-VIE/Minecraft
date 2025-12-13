@@ -15,6 +15,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 
@@ -703,5 +704,28 @@ public class ChatListener implements Listener {
         Player player = event.getPlayer();
         // Double-check cleanup on respawn in case death event was missed
         cleanupPlayerState(player.getUniqueId());
+    }
+
+    /**
+     * Handle player changing worlds (Nether/End portals) - clean up conversation state
+     * NPCs don't follow through portals, so conversations must end
+     */
+    @EventHandler
+    public void onPlayerChangeWorld(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        UUID playerUuid = player.getUniqueId();
+
+        // Check if player was in a conversation
+        UUID npcId = activeConversations.get(playerUuid);
+        if (npcId != null) {
+            AINpc npc = npcManager.getNPC(npcId);
+            String npcName = npc != null ? npc.getName() : "the NPC";
+            player.sendMessage(ChatColor.GRAY + "*You left " + npcName + " behind as you traveled to another dimension*");
+        }
+
+        // Clean up all state
+        cleanupPlayerState(playerUuid);
+
+        plugin.debug("Cleaned up conversation state for " + player.getName() + " after world change");
     }
 }
