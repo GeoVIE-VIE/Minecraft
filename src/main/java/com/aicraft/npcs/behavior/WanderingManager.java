@@ -16,6 +16,7 @@ import org.bukkit.entity.Monster;
 import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Random;
+import java.util.UUID;
 
 /**
  * Manages wandering behavior for NPCs
