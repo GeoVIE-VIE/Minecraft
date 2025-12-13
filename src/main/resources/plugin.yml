@@ -24,6 +24,11 @@ commands:
     description: Configure AI settings
     usage: /<command> <reload|setprovider|test>
     permission: aicompanions.admin
+  minimap:
+    description: Get and manage your minimap
+    usage: /<command> [give|toggle|waypoint]
+    permission: aicompanions.minimap
+    aliases: [map]
 
 permissions:
   aicompanions.npc:
@@ -40,4 +45,7 @@ permissions:
     default: op
   aicompanions.talk:
     description: Allows talking to NPCs
+    default: true
+  aicompanions.minimap:
+    description: Allows using the minimap
     default: true

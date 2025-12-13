@@ -672,12 +672,18 @@ public class ChatListener implements Listener {
     }
 
     /**
-     * Handle player death - clean up conversation state
+     * Handle player death - clean up conversation state and add death waypoint
      */
     @EventHandler
     public void onPlayerDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         cleanupPlayerState(player.getUniqueId());
+
+        // Add death waypoint to minimap
+        if (plugin.getMinimapManager() != null) {
+            plugin.getMinimapManager().addDeathWaypoint(player, player.getLocation());
+            player.sendMessage(ChatColor.GRAY + "A death waypoint has been marked on your minimap.");
+        }
     }
 
     /**
