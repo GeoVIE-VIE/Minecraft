@@ -527,20 +527,69 @@ public class NPCManager {
 
         // Check our cache first
         AINpc npc = entityToNpc.get(entity.getUniqueId());
-        if (npc != null) return npc;
+        if (npc != null) {
+            // Verify the entity is still valid and update reference if needed
+            if (npc.getBukkitEntity() == null || !npc.getBukkitEntity().isValid()) {
+                npc.setBukkitEntity(entity);
+            }
+            return npc;
+        }
 
-        // Check metadata
+        // Check metadata - entity might have been reloaded with different UUID
         if (entity.hasMetadata("ainpc")) {
             String uuidStr = entity.getMetadata("ainpc").get(0).asString();
             try {
                 UUID uuid = UUID.fromString(uuidStr);
-                return npcs.get(uuid);
+                npc = npcs.get(uuid);
+                if (npc != null) {
+                    // Update cache and entity reference for this newly found NPC
+                    entityToNpc.put(entity.getUniqueId(), npc);
+                    npc.setBukkitEntity(entity);
+                    plugin.debug("Re-associated NPC " + npc.getName() + " with entity " + entity.getUniqueId());
+                    return npc;
+                }
             } catch (IllegalArgumentException e) {
                 return null;
             }
         }
 
         return null;
+    }
+
+    /**
+     * Refresh entity mappings - call periodically to fix stale cache
+     */
+    public void refreshEntityMappings() {
+        // Remove stale entries where entity is no longer valid
+        entityToNpc.entrySet().removeIf(entry -> {
+            AINpc npc = entry.getValue();
+            Entity entity = npc.getBukkitEntity();
+            return entity == null || !entity.isValid() || entity.isDead();
+        });
+
+        // Re-scan for NPCs that need new entity references
+        for (AINpc npc : npcs.values()) {
+            if (!npc.isAlive()) continue;
+
+            Entity entity = npc.getBukkitEntity();
+            if (entity == null || !entity.isValid()) {
+                // Try to find the entity by scanning nearby entities
+                Location loc = npc.getCurrentLocation();
+                if (loc != null && loc.getWorld() != null) {
+                    for (Entity nearby : loc.getWorld().getNearbyEntities(loc, 5, 5, 5)) {
+                        if (nearby.hasMetadata("ainpc")) {
+                            String uuidStr = nearby.getMetadata("ainpc").get(0).asString();
+                            if (uuidStr.equals(npc.getUuid().toString())) {
+                                npc.setBukkitEntity(nearby);
+                                entityToNpc.put(nearby.getUniqueId(), npc);
+                                plugin.debug("Refreshed entity mapping for " + npc.getName());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**

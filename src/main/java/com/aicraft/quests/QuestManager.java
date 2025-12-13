@@ -243,13 +243,23 @@ public class QuestManager {
                 quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
             }
             case "delivery" -> {
-                // Delivery: Point to another NPC (for now, use random location)
-                double angle = random.nextDouble() * 2 * Math.PI;
-                double distance = 80 + random.nextInt(120); // 80-200 blocks away
-                double x = playerLoc.getX() + Math.cos(angle) * distance;
-                double z = playerLoc.getZ() + Math.sin(angle) * distance;
-                int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
-                quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+                // Delivery: Find another NPC to deliver to
+                AINpc targetNpc = findDeliveryTargetNPC(quest.getNpcUuid(), playerLoc);
+                if (targetNpc != null && targetNpc.getCurrentLocation() != null) {
+                    quest.setTargetLocation(targetNpc.getCurrentLocation());
+                    // Store the target NPC name in the quest objective for reference
+                    if (quest.getObjective() != null && !quest.getObjective().contains(targetNpc.getName())) {
+                        quest.setObjective(quest.getObjective() + " Find " + targetNpc.getName() + ".");
+                    }
+                } else {
+                    // Fallback to random location if no suitable NPC found
+                    double angle = random.nextDouble() * 2 * Math.PI;
+                    double distance = 80 + random.nextInt(120);
+                    double x = playerLoc.getX() + Math.cos(angle) * distance;
+                    double z = playerLoc.getZ() + Math.sin(angle) * distance;
+                    int y = playerLoc.getWorld().getHighestBlockYAt((int) x, (int) z);
+                    quest.setTargetLocation(new Location(playerLoc.getWorld(), x, y, z));
+                }
             }
             case "build" -> {
                 // Build: Set target near the NPC (their "property")
@@ -276,6 +286,51 @@ public class QuestManager {
                 }
             }
         }
+    }
+
+    /**
+     * Find a suitable NPC for delivery quests
+     * Prefers NPCs from different factions, within reasonable distance
+     */
+    private AINpc findDeliveryTargetNPC(UUID questGiverUuid, Location playerLoc) {
+        if (playerLoc == null || playerLoc.getWorld() == null) return null;
+
+        AINpc questGiver = plugin.getNPCManager().getNPC(questGiverUuid);
+        String giverFaction = questGiver != null ? questGiver.getFaction() : null;
+
+        List<AINpc> candidates = new java.util.ArrayList<>();
+
+        for (AINpc npc : plugin.getNPCManager().getAllNPCs()) {
+            if (npc.getUuid().equals(questGiverUuid)) continue; // Skip quest giver
+            if (!npc.isAlive()) continue;
+
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null || !npcLoc.getWorld().equals(playerLoc.getWorld())) continue;
+
+            double distance = playerLoc.distance(npcLoc);
+            // Only consider NPCs between 50-300 blocks away
+            if (distance < 50 || distance > 300) continue;
+
+            // Prefer NPCs from friendly or neutral factions (not hostile)
+            if (giverFaction != null && plugin.getFactionManager().areHostile(giverFaction, npc.getFaction())) {
+                continue; // Skip hostile faction NPCs for delivery
+            }
+
+            candidates.add(npc);
+        }
+
+        if (candidates.isEmpty()) return null;
+
+        // Prefer NPCs from the same faction first, then different factions
+        List<AINpc> sameFaction = candidates.stream()
+            .filter(n -> giverFaction != null && giverFaction.equals(n.getFaction()))
+            .toList();
+
+        if (!sameFaction.isEmpty()) {
+            return sameFaction.get(random.nextInt(sameFaction.size()));
+        }
+
+        return candidates.get(random.nextInt(candidates.size()));
     }
 
     /**

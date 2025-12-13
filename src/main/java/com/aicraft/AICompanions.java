@@ -229,6 +229,11 @@ public class AICompanions extends JavaPlugin {
             questManager.saveAll();
         }, saveInterval, saveInterval);
 
+        // NPC entity refresh task - fixes stale entity mappings after chunk load/unload
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            npcManager.refreshEntityMappings();
+        }, 200L, 200L); // Every 10 seconds
+
         // Gossip task (NPCs share info about players)
         if (getConfig().getBoolean("memory.gossip-enabled", true)) {
             int gossipInterval = getConfig().getInt("memory.gossip-interval", 30) * 60 * 20;
