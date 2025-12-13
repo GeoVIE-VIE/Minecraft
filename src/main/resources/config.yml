@@ -161,32 +161,45 @@ quests:
     item-multiplier: 1.0
 
 # =============================================================================
-# Auto-Spawning Settings
+# Auto-Spawning Settings (Sporadic Mode)
 # =============================================================================
 spawning:
   # Enable automatic NPC spawning
   enabled: true
 
   # How many NPCs can exist per world (total)
-  max-npcs-per-world: 100
+  max-npcs-per-world: 50
 
   # How many NPCs should be near each player (within render distance)
-  npcs-per-area: 20
+  # Lower values = more sparse, natural feel
+  npcs-per-area: 8
 
-  # How often to try spawning new NPCs (seconds)
-  interval-seconds: 30
+  # Spawn interval range (random between min and max for sporadic feel)
+  min-interval-seconds: 45
+  max-interval-seconds: 180
 
-  # How many NPCs to spawn per cycle
-  spawn-batch-size: 5
+  # Batch size range (random NPCs per spawn cycle)
+  min-batch-size: 1
+  max-batch-size: 3
+
+  # Chance to actually spawn when interval triggers (percent)
+  # Lower = more sporadic, less predictable
+  spawn-chance-percent: 60
 
   # Minimum distance from player to spawn
-  min-distance-from-player: 15
+  min-distance-from-player: 20
 
   # Maximum distance from player to spawn
-  max-distance-from-player: 60
+  max-distance-from-player: 80
 
-  # Initial spawn on server start (per player online)
-  initial-spawn-count: 15
+  # Initial spawn on server start (random 0 to this number)
+  initial-spawn-count: 3
+
+  # Distant travelers - NPCs that spawn far away and wander through
+  travelers:
+    enabled: true
+    # Chance per spawn cycle to spawn a distant traveler (percent)
+    chance-percent: 25
 
 # =============================================================================
 # World Settings
