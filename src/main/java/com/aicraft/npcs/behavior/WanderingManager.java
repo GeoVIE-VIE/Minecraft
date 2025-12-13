@@ -65,7 +65,61 @@ public class WanderingManager {
             combatTask = Bukkit.getScheduler().runTaskTimer(plugin, this::processCombat, 50L, 20L);
         }
 
+        // Engagement task - makes NPCs look at players they're talking to
+        Bukkit.getScheduler().runTaskTimer(plugin, this::processEngagements, 20L, 10L);
+
         plugin.getLogger().info("Wandering manager started");
+    }
+
+    /**
+     * Process NPC engagements - make engaged NPCs look at their conversation partner
+     */
+    private void processEngagements() {
+        for (AINpc npc : npcManager.getAllNPCs()) {
+            if (!npc.isAlive() || !npc.isSpawned() || !npc.isEngaged()) continue;
+
+            UUID playerUuid = npc.getEngagedWithPlayer();
+            org.bukkit.entity.Player player = Bukkit.getPlayer(playerUuid);
+
+            if (player == null || !player.isOnline()) {
+                // Player left, disengage
+                npc.disengageFromPlayer();
+                continue;
+            }
+
+            // Check if player walked too far away
+            Location npcLoc = npc.getCurrentLocation();
+            Location playerLoc = player.getLocation();
+            double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 10);
+
+            if (npcLoc.getWorld().equals(playerLoc.getWorld()) &&
+                npcLoc.distance(playerLoc) > maxDistance) {
+                // Player walked away, disengage
+                npc.disengageFromPlayer();
+                player.sendMessage(org.bukkit.ChatColor.GRAY + "*" + npc.getName() + " returns to their business*");
+                continue;
+            }
+
+            // Make NPC look at player
+            Entity entity = npc.getBukkitEntity();
+            if (entity instanceof LivingEntity living) {
+                // Calculate look direction
+                Location lookAt = playerLoc.clone();
+                lookAt.setY(lookAt.getY() + 1.5); // Look at player's head
+
+                org.bukkit.util.Vector direction = lookAt.toVector().subtract(entity.getLocation().toVector());
+                Location newLoc = entity.getLocation().clone();
+                newLoc.setDirection(direction);
+
+                // Just update the yaw/pitch, don't teleport
+                entity.setRotation(newLoc.getYaw(), newLoc.getPitch());
+            }
+
+            // Stop any ongoing pathfinding
+            if (entity instanceof Mob mob) {
+                mob.getPathfinder().stopPathfinding();
+            }
+        }
     }
 
     /**
@@ -88,6 +142,9 @@ public class WanderingManager {
     private void processWandering() {
         for (AINpc npc : npcManager.getAllNPCs()) {
             if (!npc.isAlive() || !npc.isSpawned() || !npc.canWander()) continue;
+
+            // Don't wander if engaged in conversation - stay focused on player
+            if (npc.isEngaged()) continue;
 
             // Random chance to wander
             if (random.nextDouble() > wanderChance) continue;

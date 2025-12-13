@@ -35,11 +35,16 @@ public class NPCSpawner implements Listener {
     // Config values
     private int maxNpcsPerWorld;
     private int npcsPerArea;
-    private int spawnInterval;
-    private int spawnBatchSize;
+    private int minSpawnInterval;
+    private int maxSpawnInterval;
+    private int minBatchSize;
+    private int maxBatchSize;
     private int minPlayerDistance;
     private int maxPlayerDistance;
     private int initialSpawnCount;
+    private int spawnChancePercent;
+    private boolean travelersEnabled;
+    private int travelerChancePercent;
 
     public NPCSpawner(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
         this.plugin = plugin;
@@ -52,13 +57,18 @@ public class NPCSpawner implements Listener {
     }
 
     private void loadConfig() {
-        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 100);
-        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 20);
-        spawnInterval = plugin.getConfig().getInt("spawning.interval-seconds", 30);
-        spawnBatchSize = plugin.getConfig().getInt("spawning.spawn-batch-size", 5);
-        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 15);
-        maxPlayerDistance = plugin.getConfig().getInt("spawning.max-distance-from-player", 60);
-        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 15);
+        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 50);
+        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 8);
+        minSpawnInterval = plugin.getConfig().getInt("spawning.min-interval-seconds", 45);
+        maxSpawnInterval = plugin.getConfig().getInt("spawning.max-interval-seconds", 180);
+        minBatchSize = plugin.getConfig().getInt("spawning.min-batch-size", 1);
+        maxBatchSize = plugin.getConfig().getInt("spawning.max-batch-size", 3);
+        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 20);
+        maxPlayerDistance = plugin.getConfig().getInt("spawning.max-distance-from-player", 80);
+        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 3);
+        spawnChancePercent = plugin.getConfig().getInt("spawning.spawn-chance-percent", 60);
+        travelersEnabled = plugin.getConfig().getBoolean("spawning.travelers.enabled", true);
+        travelerChancePercent = plugin.getConfig().getInt("spawning.travelers.chance-percent", 25);
     }
 
     /**
@@ -69,19 +79,31 @@ public class NPCSpawner implements Listener {
             spawnTask.cancel();
         }
 
-        // Spawn initial NPCs for online players
+        // Spawn initial NPCs for online players (smaller, sporadic amount)
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 spawnInitialNPCs(player);
             }
-        }, 100L); // 5 second delay after startup
+        }, 200L); // 10 second delay after startup
 
-        // Regular spawning task
-        spawnTask = Bukkit.getScheduler().runTaskTimer(plugin, this::trySpawnNPCs,
-                200L, spawnInterval * 20L);
+        // Start sporadic spawning with variable intervals
+        scheduleNextSpawn();
 
-        plugin.getLogger().info("NPC auto-spawner started (interval: " + spawnInterval + "s, " +
-                npcsPerArea + " NPCs per area)");
+        plugin.getLogger().info("NPC auto-spawner started (sporadic mode: " + minSpawnInterval + "-" +
+                maxSpawnInterval + "s intervals, " + spawnChancePercent + "% chance)");
+    }
+
+    /**
+     * Schedule the next spawn attempt with a random interval
+     */
+    private void scheduleNextSpawn() {
+        int intervalSeconds = minSpawnInterval + random.nextInt(maxSpawnInterval - minSpawnInterval + 1);
+        long intervalTicks = intervalSeconds * 20L;
+
+        spawnTask = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            trySpawnNPCs();
+            scheduleNextSpawn(); // Schedule next with new random interval
+        }, intervalTicks);
     }
 
     /**
@@ -111,13 +133,19 @@ public class NPCSpawner implements Listener {
     }
 
     /**
-     * Spawn initial batch of NPCs around a player
+     * Spawn initial batch of NPCs around a player (sporadic - fewer NPCs)
      */
     private void spawnInitialNPCs(Player player) {
         int currentNearby = countNPCsNearPlayer(player);
-        int toSpawn = Math.min(initialSpawnCount, npcsPerArea - currentNearby);
 
-        if (toSpawn <= 0) return;
+        // Randomize initial spawn (0 to initialSpawnCount)
+        int baseSpawn = random.nextInt(initialSpawnCount + 1);
+        int toSpawn = Math.min(baseSpawn, npcsPerArea - currentNearby);
+
+        if (toSpawn <= 0) {
+            plugin.debug("No initial NPCs spawned near " + player.getName() + " (sporadic roll)");
+            return;
+        }
 
         plugin.getLogger().info("Spawning " + toSpawn + " initial NPCs near " + player.getName());
 
@@ -130,9 +158,15 @@ public class NPCSpawner implements Listener {
     }
 
     /**
-     * Try to spawn NPCs near players who need more
+     * Try to spawn NPCs near players who need more (sporadic spawning)
      */
     private void trySpawnNPCs() {
+        // Random chance to skip this spawn cycle entirely (makes spawning feel sporadic)
+        if (random.nextInt(100) >= spawnChancePercent) {
+            plugin.debug("Spawn cycle skipped (chance roll)");
+            return;
+        }
+
         for (World world : Bukkit.getWorlds()) {
             // Check if spawning is enabled for this world
             List<String> enabledWorlds = plugin.getConfig().getStringList("world.enabled-worlds");
@@ -150,9 +184,10 @@ public class NPCSpawner implements Listener {
             for (Player player : world.getPlayers()) {
                 int nearbyCount = countNPCsNearPlayer(player);
 
-                // Spawn more if below target
+                // Spawn more if below target (with randomized batch size)
                 if (nearbyCount < npcsPerArea) {
-                    int toSpawn = Math.min(spawnBatchSize, npcsPerArea - nearbyCount);
+                    int batchSize = minBatchSize + random.nextInt(maxBatchSize - minBatchSize + 1);
+                    int toSpawn = Math.min(batchSize, npcsPerArea - nearbyCount);
                     toSpawn = Math.min(toSpawn, maxNpcsPerWorld - worldNpcCount);
 
                     for (int i = 0; i < toSpawn; i++) {
@@ -163,9 +198,48 @@ public class NPCSpawner implements Listener {
                         }
                     }
 
-                    plugin.debug("Spawned NPCs near " + player.getName() +
-                            " (now " + countNPCsNearPlayer(player) + " nearby)");
+                    if (toSpawn > 0) {
+                        plugin.debug("Spawned " + toSpawn + " NPCs near " + player.getName() +
+                                " (now " + countNPCsNearPlayer(player) + " nearby)");
+                    }
                 }
+
+                // Chance to spawn a distant traveler
+                if (travelersEnabled && random.nextInt(100) < travelerChancePercent) {
+                    spawnDistantTraveler(player);
+                }
+            }
+        }
+    }
+
+    /**
+     * Spawn a traveler NPC at a greater distance (passing through the area)
+     */
+    private void spawnDistantTraveler(Player player) {
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        if (world == null) return;
+
+        // Travelers spawn further away (100-200 blocks)
+        int travelerMinDist = 100;
+        int travelerMaxDist = 200;
+
+        for (int attempts = 0; attempts < 10; attempts++) {
+            double angle = random.nextDouble() * 2 * Math.PI;
+            double distance = travelerMinDist + random.nextDouble() * (travelerMaxDist - travelerMinDist);
+
+            double x = playerLoc.getX() + Math.cos(angle) * distance;
+            double z = playerLoc.getZ() + Math.sin(angle) * distance;
+
+            int y = world.getHighestBlockYAt((int) x, (int) z);
+            Location loc = new Location(world, x, y + 1, z);
+
+            if (isValidSpawnLocation(loc)) {
+                // Travelers are always Wanderers or Merchants
+                String faction = random.nextBoolean() ? "Wanderers" : "Merchants";
+                AINpc npc = npcManager.createRandomNPC(loc, faction);
+                plugin.debug("Spawned distant traveler: " + npc.getName() + " at distance " + (int) distance);
+                return;
             }
         }
     }
