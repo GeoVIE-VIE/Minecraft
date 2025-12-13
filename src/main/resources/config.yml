@@ -215,6 +215,26 @@ world:
   spawn-near-villages: true
 
 # =============================================================================
+# Settlement Defense Settings
+# =============================================================================
+settlements:
+  defense:
+    # Enable settlement defense system (guards and defensive building)
+    enabled: true
+
+    # Radius around settlement center for wall building
+    wall-radius: 20
+
+    # Number of guard NPCs per settlement
+    guards-per-settlement: 2
+
+    # Range to detect hostile mobs
+    threat-range: 30
+
+    # Enable automatic wall/barricade building against threats
+    wall-building: true
+
+# =============================================================================
 # Performance Settings
 # =============================================================================
 performance:

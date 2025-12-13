@@ -14,6 +14,7 @@ import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
 import com.aicraft.npcs.building.NPCHomeBuilder;
+import com.aicraft.npcs.building.NPCSettlementDefense;
 import com.aicraft.npcs.social.NPCSocialManager;
 import com.aicraft.quests.QuestManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -45,6 +46,7 @@ public class AICompanions extends JavaPlugin {
     private QuestTrackerGUI questTrackerGUI;
     private NPCSocialManager socialManager;
     private NPCHomeBuilder homeBuilder;
+    private NPCSettlementDefense settlementDefense;
     private ChatListener chatListener;
 
     @Override
@@ -124,6 +126,11 @@ public class AICompanions extends JavaPlugin {
             homeBuilder.stop();
         }
 
+        // Stop settlement defense
+        if (settlementDefense != null) {
+            settlementDefense.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -160,6 +167,9 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing NPC home builder...");
         homeBuilder = new NPCHomeBuilder(this, npcManager);
+
+        getLogger().info("Initializing settlement defense system...");
+        settlementDefense = new NPCSettlementDefense(this, npcManager, homeBuilder);
     }
 
     private void registerCommands() {
@@ -225,6 +235,11 @@ public class AICompanions extends JavaPlugin {
         if (getConfig().getBoolean("npcs.building.enabled", true)) {
             homeBuilder.start();
         }
+
+        // Start settlement defense system (guards, walls)
+        if (getConfig().getBoolean("settlements.defense.enabled", true)) {
+            settlementDefense.start();
+        }
     }
 
     public void reload() {
@@ -277,6 +292,10 @@ public class AICompanions extends JavaPlugin {
 
     public NPCHomeBuilder getHomeBuilder() {
         return homeBuilder;
+    }
+
+    public NPCSettlementDefense getSettlementDefense() {
+        return settlementDefense;
     }
 
     public ChatListener getChatListener() {
