@@ -235,6 +235,35 @@ settlements:
     wall-building: true
 
 # =============================================================================
+# Minimap Settings
+# =============================================================================
+minimap:
+  # Enable the minimap system
+  enabled: true
+
+  # Default minimap style when given to players
+  # Options: "circular", "square"
+  default-style: "circular"
+
+  # Minimap view radius in blocks
+  radius: 64
+
+  # Show NPCs on the minimap as green dots
+  show-npcs: true
+
+  # Show other players on the minimap as blue dots
+  show-players: true
+
+  # Show quest waypoints on the minimap
+  show-quest-waypoints: true
+
+  # Show death location waypoint
+  show-death-waypoint: true
+
+  # Maximum custom waypoints per player
+  max-custom-waypoints: 10
+
+# =============================================================================
 # Performance Settings
 # =============================================================================
 performance:

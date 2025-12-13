@@ -13,7 +13,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.*;
 
@@ -637,5 +640,68 @@ public class ChatListener implements Listener {
     public AINpc getConversationPartner(Player player) {
         UUID npcId = activeConversations.get(player.getUniqueId());
         return npcId != null ? npcManager.getNPC(npcId) : null;
+    }
+
+    /**
+     * Clean up all conversation state for a player (used on death/quit/respawn)
+     */
+    public void cleanupPlayerState(UUID playerUuid) {
+        // Clear active conversation
+        UUID npcId = activeConversations.remove(playerUuid);
+        if (npcId != null) {
+            AINpc npc = npcManager.getNPC(npcId);
+            if (npc != null) {
+                npc.disengageFromPlayer();
+            }
+        }
+
+        // Clear selected NPC (might be different from active conversation)
+        UUID selectedNpcId = selectedNPCs.remove(playerUuid);
+        if (selectedNpcId != null && !selectedNpcId.equals(npcId)) {
+            AINpc selectedNpc = npcManager.getNPC(selectedNpcId);
+            if (selectedNpc != null) {
+                selectedNpc.disengageFromPlayer();
+            }
+        }
+
+        // Clear other state
+        pendingQuestOffers.remove(playerUuid);
+        numberedSelections.remove(playerUuid);
+
+        plugin.debug("Cleaned up conversation state for player " + playerUuid);
+    }
+
+    /**
+     * Handle player death - clean up conversation state and add death waypoint
+     */
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        cleanupPlayerState(player.getUniqueId());
+
+        // Add death waypoint to minimap
+        if (plugin.getMinimapManager() != null) {
+            plugin.getMinimapManager().addDeathWaypoint(player, player.getLocation());
+            player.sendMessage(ChatColor.GRAY + "A death waypoint has been marked on your minimap.");
+        }
+    }
+
+    /**
+     * Handle player quit - clean up conversation state
+     */
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        cleanupPlayerState(player.getUniqueId());
+    }
+
+    /**
+     * Handle player respawn - ensure clean state
+     */
+    @EventHandler
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+        // Double-check cleanup on respawn in case death event was missed
+        cleanupPlayerState(player.getUniqueId());
     }
 }

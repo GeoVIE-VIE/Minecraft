@@ -10,6 +10,8 @@ import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
 import com.aicraft.listeners.QuestProgressListener;
 import com.aicraft.memory.MemoryManager;
+import com.aicraft.minimap.MinimapCommand;
+import com.aicraft.minimap.MinimapManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
@@ -48,6 +50,7 @@ public class AICompanions extends JavaPlugin {
     private NPCHomeBuilder homeBuilder;
     private NPCSettlementDefense settlementDefense;
     private ChatListener chatListener;
+    private MinimapManager minimapManager;
 
     @Override
     public void onEnable() {
@@ -131,6 +134,11 @@ public class AICompanions extends JavaPlugin {
             settlementDefense.stop();
         }
 
+        // Stop minimap manager
+        if (minimapManager != null) {
+            minimapManager.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -170,6 +178,9 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing settlement defense system...");
         settlementDefense = new NPCSettlementDefense(this, npcManager, homeBuilder);
+
+        getLogger().info("Initializing minimap manager...");
+        minimapManager = new MinimapManager(this, npcManager, questManager);
     }
 
     private void registerCommands() {
@@ -188,6 +199,11 @@ public class AICompanions extends JavaPlugin {
         }
 
         getCommand("aiconfig").setExecutor(new AIConfigCommand(this, aiManager));
+
+        // Register minimap command
+        MinimapCommand minimapCommand = new MinimapCommand(minimapManager);
+        getCommand("minimap").setExecutor(minimapCommand);
+        getCommand("minimap").setTabCompleter(minimapCommand);
     }
 
     private void registerListeners() {
@@ -239,6 +255,11 @@ public class AICompanions extends JavaPlugin {
         // Start settlement defense system (guards, walls)
         if (getConfig().getBoolean("settlements.defense.enabled", true)) {
             settlementDefense.start();
+        }
+
+        // Start minimap manager
+        if (getConfig().getBoolean("minimap.enabled", true)) {
+            minimapManager.start();
         }
     }
 
@@ -300,6 +321,10 @@ public class AICompanions extends JavaPlugin {
 
     public ChatListener getChatListener() {
         return chatListener;
+    }
+
+    public MinimapManager getMinimapManager() {
+        return minimapManager;
     }
 
     public boolean isDebug() {
