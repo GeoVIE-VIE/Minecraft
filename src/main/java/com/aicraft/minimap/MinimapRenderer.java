@@ -450,13 +450,14 @@ public class MinimapRenderer extends MapRenderer {
     private void drawNPCs(MapCanvas canvas, Player player, int centerX, int centerZ) {
         // Get NPCs from manager and draw green dots
         List<Location> npcLocations = manager.getNearbyNPCLocations(player);
-        if (npcLocations == null) return;
+        if (npcLocations == null || npcLocations.isEmpty()) return;
 
         Location playerLoc = player.getLocation();
         int playerX = playerLoc.getBlockX();
         int playerZ = playerLoc.getBlockZ();
 
         for (Location npcLoc : npcLocations) {
+            if (npcLoc == null || npcLoc.getWorld() == null) continue;
             if (!npcLoc.getWorld().equals(playerLoc.getWorld())) continue;
 
             int dx = npcLoc.getBlockX() - playerX;

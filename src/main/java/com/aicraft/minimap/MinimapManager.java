@@ -289,13 +289,24 @@ public class MinimapManager {
      */
     public List<Location> getNearbyNPCLocations(Player player) {
         List<Location> locations = new ArrayList<>();
+        if (player == null || npcManager == null) return locations;
+
         Location playerLoc = player.getLocation();
+        if (playerLoc == null || playerLoc.getWorld() == null) return locations;
 
         for (AINpc npc : npcManager.getAllNPCs()) {
-            if (!npc.isAlive() || !npc.isSpawned()) continue;
+            if (npc == null) continue;
+            if (!npc.isAlive()) continue;
 
-            Location npcLoc = npc.getCurrentLocation();
-            if (npcLoc == null) continue;
+            // Try to get location from entity first (more accurate), then fall back to stored location
+            Location npcLoc = null;
+            if (npc.getBukkitEntity() != null && npc.getBukkitEntity().isValid()) {
+                npcLoc = npc.getBukkitEntity().getLocation();
+            } else {
+                npcLoc = npc.getCurrentLocation();
+            }
+
+            if (npcLoc == null || npcLoc.getWorld() == null) continue;
             if (!npcLoc.getWorld().equals(playerLoc.getWorld())) continue;
 
             double distance = playerLoc.distance(npcLoc);

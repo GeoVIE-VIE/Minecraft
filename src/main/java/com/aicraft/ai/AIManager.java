@@ -5,7 +5,9 @@ import com.aicraft.ai.providers.AIProvider;
 import com.aicraft.ai.providers.ClaudeProvider;
 import com.aicraft.ai.providers.OpenAIProvider;
 import com.aicraft.npcs.AINpc;
+import org.bukkit.Location;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -160,6 +162,14 @@ public class AIManager {
         Dialect dialect = npc.getDialect();
         prompt.append("Speech Style: ").append(dialect.getName()).append("\n");
 
+        // Add awareness of nearby NPCs
+        String nearbyNPCInfo = getNearbyNPCInfo(npc);
+        if (!nearbyNPCInfo.isEmpty()) {
+            prompt.append("\n=== PEOPLE YOU KNOW NEARBY ===\n");
+            prompt.append(nearbyNPCInfo);
+            prompt.append("(You can reference these NPCs in conversation, send the player to them, or share gossip about them)\n");
+        }
+
         prompt.append("\n=== ROLEPLAY RULES ===\n");
         prompt.append("1. Stay completely in character as ").append(npc.getName()).append("\n");
         prompt.append("2. Keep responses SHORT (1-3 sentences, like real game NPCs)\n");
@@ -169,11 +179,12 @@ public class AIManager {
         prompt.append("6. ").append(dialect.getPrompt()).append("\n");
         prompt.append("7. If attacked or threatened, respond appropriately to your personality\n");
         prompt.append("8. DO NOT break character or mention being an AI\n");
+        prompt.append("9. You can suggest the player visit other NPCs you know for specific needs\n");
 
         // Special instructions for Cultists
         if ("Cultists".equalsIgnoreCase(npc.getFaction())) {
-            prompt.append("9. You worship the god Geodjian. Be mysterious and try to subtly recruit the player.\n");
-            prompt.append("10. Never reveal your true intentions immediately. Be deceptive but intriguing.\n");
+            prompt.append("10. You worship the god Geodjian. Be mysterious and try to subtly recruit the player.\n");
+            prompt.append("11. Never reveal your true intentions immediately. Be deceptive but intriguing.\n");
         }
 
         if (conversationHistory != null && !conversationHistory.isEmpty()) {
@@ -186,6 +197,37 @@ public class AIManager {
         prompt.append("\nRespond as ").append(npc.getName()).append(" (in character, 1-3 sentences):");
 
         return prompt.toString();
+    }
+
+    /**
+     * Get information about nearby NPCs for cross-NPC awareness
+     */
+    private String getNearbyNPCInfo(AINpc npc) {
+        StringBuilder info = new StringBuilder();
+        Location npcLoc = npc.getCurrentLocation();
+        if (npcLoc == null) return "";
+
+        List<AINpc> nearbyNPCs = plugin.getNPCManager().getNPCsNearLocation(npcLoc, 150);
+        int count = 0;
+        for (AINpc other : nearbyNPCs) {
+            if (other.getUuid().equals(npc.getUuid())) continue; // Skip self
+            if (!other.isAlive()) continue;
+            if (count >= 5) break; // Limit to 5 nearby NPCs to keep prompt size reasonable
+
+            String relationship = "";
+            if (other.getFaction().equals(npc.getFaction())) {
+                relationship = " (your faction ally)";
+            } else if (plugin.getFactionManager().areHostile(npc.getFaction(), other.getFaction())) {
+                relationship = " (enemy faction)";
+            }
+
+            info.append("- ").append(other.getName())
+                .append(" (").append(other.getFaction()).append(")")
+                .append(relationship).append("\n");
+            count++;
+        }
+
+        return info.toString();
     }
 
     private String buildBackstoryPrompt(String npcName, String faction, String personality) {
