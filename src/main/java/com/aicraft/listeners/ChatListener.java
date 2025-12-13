@@ -351,7 +351,6 @@ public class ChatListener implements Listener {
     public void selectNPC(Player player, AINpc npc) {
         selectedNPCs.put(player.getUniqueId(), npc.getUuid());
         player.sendMessage(ChatColor.GREEN + "Now talking to " + ChatColor.GOLD + npc.getName());
-        player.sendMessage(ChatColor.GRAY + "Type your message (no @ needed) or use @<message>");
     }
 
     /**
