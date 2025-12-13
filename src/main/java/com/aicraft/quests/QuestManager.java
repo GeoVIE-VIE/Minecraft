@@ -321,16 +321,18 @@ public class QuestManager {
 
         if (candidates.isEmpty()) return null;
 
+        Random rand = new Random();
+
         // Prefer NPCs from the same faction first, then different factions
         List<AINpc> sameFaction = candidates.stream()
             .filter(n -> giverFaction != null && giverFaction.equals(n.getFaction()))
             .toList();
 
         if (!sameFaction.isEmpty()) {
-            return sameFaction.get(random.nextInt(sameFaction.size()));
+            return sameFaction.get(rand.nextInt(sameFaction.size()));
         }
 
-        return candidates.get(random.nextInt(candidates.size()));
+        return candidates.get(rand.nextInt(candidates.size()));
     }
 
     /**
