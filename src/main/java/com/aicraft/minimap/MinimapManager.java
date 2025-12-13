@@ -177,14 +177,14 @@ public class MinimapManager {
                                 wp.getType() == Waypoint.WaypointType.QUEST_TURNIN);
 
         // Add waypoints from active quests
-        List<Quest> activeQuests = questManager.getActiveQuests(player);
+        List<Quest> activeQuests = questManager.getActiveQuests(player.getUniqueId());
         if (activeQuests != null) {
             for (Quest quest : activeQuests) {
                 // Add objective waypoint if quest has location
-                Location targetLoc = quest.getTargetLocation();
+                Location targetLoc = quest.getTargetLocation(plugin.getServer());
                 if (targetLoc != null) {
                     Waypoint wp = new Waypoint(
-                        "quest_" + quest.getQuestId() + "_objective",
+                        "quest_" + quest.getUuid() + "_objective",
                         quest.getTitle() + " (Objective)",
                         targetLoc.getWorld().getName(),
                         targetLoc.getBlockX(),
@@ -197,11 +197,11 @@ public class MinimapManager {
                 }
 
                 // Add turn-in waypoint (quest giver NPC)
-                AINpc questGiver = npcManager.getNPC(quest.getGiverNpcId());
+                AINpc questGiver = npcManager.getNPC(quest.getNpcUuid());
                 if (questGiver != null && questGiver.getCurrentLocation() != null) {
                     Location npcLoc = questGiver.getCurrentLocation();
                     Waypoint wp = new Waypoint(
-                        "quest_" + quest.getQuestId() + "_turnin",
+                        "quest_" + quest.getUuid() + "_turnin",
                         quest.getTitle() + " (Turn In)",
                         npcLoc.getWorld().getName(),
                         npcLoc.getBlockX(),
