@@ -190,7 +190,7 @@ public class MinimapRenderer extends MapRenderer {
         }
 
         // Paths
-        if (type == Material.DIRT_PATH || type == Material.GRASS_PATH) {
+        if (type == Material.DIRT_PATH) {
             return COLOR_PATH;
         }
 
