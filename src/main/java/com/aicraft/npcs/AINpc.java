@@ -37,6 +37,10 @@ public class AINpc {
     private boolean canTrade;
     private boolean canGiveQuests;
 
+    // Conversation engagement - NPC stops and focuses on this player
+    private UUID engagedWithPlayer;
+    private long engagementStartTime;
+
     // Entity reference (for the actual Minecraft entity)
     private transient org.bukkit.entity.Entity bukkitEntity;
 
@@ -217,6 +221,44 @@ public class AINpc {
 
     public void setCanGiveQuests(boolean canGiveQuests) {
         this.canGiveQuests = canGiveQuests;
+    }
+
+    /**
+     * Check if this NPC is currently engaged in conversation with a player
+     */
+    public boolean isEngaged() {
+        return engagedWithPlayer != null;
+    }
+
+    /**
+     * Get the player this NPC is engaged with
+     */
+    public UUID getEngagedWithPlayer() {
+        return engagedWithPlayer;
+    }
+
+    /**
+     * Engage this NPC in conversation with a player (stops wandering, focuses on player)
+     */
+    public void engageWithPlayer(UUID playerUuid) {
+        this.engagedWithPlayer = playerUuid;
+        this.engagementStartTime = System.currentTimeMillis();
+    }
+
+    /**
+     * End engagement with player (resumes normal behavior)
+     */
+    public void disengageFromPlayer() {
+        this.engagedWithPlayer = null;
+        this.engagementStartTime = 0;
+    }
+
+    /**
+     * Get how long this NPC has been engaged in conversation (milliseconds)
+     */
+    public long getEngagementDuration() {
+        if (engagedWithPlayer == null) return 0;
+        return System.currentTimeMillis() - engagementStartTime;
     }
 
     public Dialect getDialect() {

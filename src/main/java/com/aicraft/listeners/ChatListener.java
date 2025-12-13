@@ -347,24 +347,71 @@ public class ChatListener implements Listener {
 
     /**
      * Select an NPC for conversation (called from right-click)
+     * NPC will stop, face the player, and stay focused until conversation ends
      */
     public void selectNPC(Player player, AINpc npc) {
+        // Clear any previous engagement
+        UUID previousNpcId = selectedNPCs.get(player.getUniqueId());
+        if (previousNpcId != null && !previousNpcId.equals(npc.getUuid())) {
+            AINpc previousNpc = npcManager.getNPC(previousNpcId);
+            if (previousNpc != null) {
+                previousNpc.disengageFromPlayer();
+            }
+        }
+
         selectedNPCs.put(player.getUniqueId(), npc.getUuid());
+        activeConversations.put(player.getUniqueId(), npc.getUuid());
+
+        // Engage the NPC - they will stop wandering and face the player
+        npc.engageWithPlayer(player.getUniqueId());
+
+        // Stop NPC movement immediately
+        if (npc.getBukkitEntity() instanceof org.bukkit.entity.Mob mob) {
+            mob.getPathfinder().stopPathfinding();
+        }
+
         player.sendMessage(ChatColor.GREEN + "Now talking to " + ChatColor.GOLD + npc.getName());
+        player.sendMessage(ChatColor.GRAY + "Say 'bye' or walk away to end the conversation.");
     }
 
     /**
-     * Clear NPC selection
+     * Clear NPC selection and disengage the NPC
      */
     public void clearSelection(Player player) {
-        selectedNPCs.remove(player.getUniqueId());
+        UUID npcId = selectedNPCs.remove(player.getUniqueId());
+        if (npcId != null) {
+            AINpc npc = npcManager.getNPC(npcId);
+            if (npc != null) {
+                npc.disengageFromPlayer();
+            }
+        }
     }
+
+    // Keywords that end conversations
+    private static final String[] GOODBYE_KEYWORDS = {
+            "bye", "goodbye", "farewell", "see you", "later", "gotta go",
+            "have to go", "leaving", "cya", "gtg", "take care"
+    };
 
     /**
      * Process a conversation with an NPC
      */
     private void processNPCConversation(Player player, AINpc npc, String message) {
         String lowerMessage = message.toLowerCase();
+
+        // Check if player is saying goodbye
+        for (String goodbye : GOODBYE_KEYWORDS) {
+            if (lowerMessage.contains(goodbye)) {
+                // Send a farewell response from NPC
+                player.sendMessage(ChatColor.WHITE + "You: " + ChatColor.GRAY + message);
+                String farewellResponse = generateFarewellResponse(npc);
+                player.sendMessage(ChatColor.GOLD + npc.getName() + ": " + ChatColor.WHITE + farewellResponse);
+
+                // End the conversation
+                endConversation(player);
+                return;
+            }
+        }
 
         // Check if player is accepting a pending quest offer
         if (pendingQuestOffers.containsKey(player.getUniqueId())) {
@@ -506,6 +553,42 @@ public class ChatListener implements Listener {
     }
 
     /**
+     * Generate a farewell response based on NPC personality/dialect
+     */
+    private String generateFarewellResponse(AINpc npc) {
+        java.util.Random rand = new java.util.Random();
+        String[] standardFarewells = {
+                "Safe travels, friend.",
+                "Until we meet again.",
+                "Farewell, traveler.",
+                "Take care out there.",
+                "May your path be clear."
+        };
+
+        String[] hostileFarewells = {
+                "Good riddance.",
+                "Don't let the door hit you.",
+                "Finally, some peace.",
+                "Off with you then."
+        };
+
+        String[] friendlyFarewells = {
+                "It was lovely chatting! Come back soon!",
+                "Safe journeys, my friend!",
+                "Do come visit again!",
+                "Blessings on your travels!"
+        };
+
+        if (npc.isHostile()) {
+            return hostileFarewells[rand.nextInt(hostileFarewells.length)];
+        } else if (npc.getCurrentMood().equals("pleased")) {
+            return friendlyFarewells[rand.nextInt(friendlyFarewells.length)];
+        } else {
+            return standardFarewells[rand.nextInt(standardFarewells.length)];
+        }
+    }
+
+    /**
      * Start a conversation with an NPC
      */
     public void startConversation(Player player, AINpc npc) {
@@ -523,13 +606,18 @@ public class ChatListener implements Listener {
     }
 
     /**
-     * End a conversation
+     * End a conversation and disengage the NPC
      */
     public void endConversation(Player player) {
         UUID npcId = activeConversations.remove(player.getUniqueId());
+        selectedNPCs.remove(player.getUniqueId());
+        pendingQuestOffers.remove(player.getUniqueId());
+
         if (npcId != null) {
             AINpc npc = npcManager.getNPC(npcId);
             if (npc != null) {
+                // Disengage the NPC so they resume normal behavior
+                npc.disengageFromPlayer();
                 player.sendMessage(ChatColor.GRAY + "*You end your conversation with " +
                         npc.getName() + "*");
             }
