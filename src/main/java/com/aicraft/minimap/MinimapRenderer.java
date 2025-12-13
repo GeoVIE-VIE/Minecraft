@@ -45,6 +45,7 @@ public class MinimapRenderer extends MapRenderer {
     private static final byte COLOR_QUEST = MapPalette.matchColor(255, 165, 0);       // Orange
     private static final byte COLOR_BORDER = MapPalette.matchColor(40, 40, 40);       // Dark gray
     private static final byte COLOR_COMPASS = MapPalette.matchColor(255, 255, 255);   // White
+    private static final byte COLOR_OTHER_PLAYER = MapPalette.matchColor(0, 191, 255); // Deep sky blue
 
     public MinimapRenderer(MinimapManager manager, boolean circular, int radius) {
         super(true); // Contextual - renders per-player
@@ -89,6 +90,9 @@ public class MinimapRenderer extends MapRenderer {
 
         // Draw NPCs
         drawNPCs(canvas, player, centerX, centerZ);
+
+        // Draw other players
+        drawOtherPlayers(canvas, player, centerX, centerZ);
 
         // Draw player marker (always in center)
         drawPlayerMarker(canvas, centerX, centerZ, player.getLocation().getYaw());
@@ -470,6 +474,45 @@ public class MinimapRenderer extends MapRenderer {
                 canvas.setPixel(mapX - 1, mapZ, COLOR_NPC);
                 canvas.setPixel(mapX, mapZ + 1, COLOR_NPC);
                 canvas.setPixel(mapX, mapZ - 1, COLOR_NPC);
+            }
+        }
+    }
+
+    private void drawOtherPlayers(MapCanvas canvas, Player player, int centerX, int centerZ) {
+        Location playerLoc = player.getLocation();
+        int playerX = playerLoc.getBlockX();
+        int playerZ = playerLoc.getBlockZ();
+        World playerWorld = playerLoc.getWorld();
+
+        for (Player other : Bukkit.getOnlinePlayers()) {
+            // Skip self
+            if (other.equals(player)) continue;
+
+            Location otherLoc = other.getLocation();
+
+            // Skip if in different world
+            if (!otherLoc.getWorld().equals(playerWorld)) continue;
+
+            int dx = otherLoc.getBlockX() - playerX;
+            int dz = otherLoc.getBlockZ() - playerZ;
+
+            // Check if within minimap range
+            if (Math.abs(dx) > 60 || Math.abs(dz) > 60) continue;
+
+            int mapX = centerX + dx;
+            int mapZ = centerZ + dz;
+
+            if (mapX >= 4 && mapX < 124 && mapZ >= 4 && mapZ < 124) {
+                // Draw blue dot for other players (slightly larger than NPCs)
+                canvas.setPixel(mapX, mapZ, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX + 1, mapZ, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX - 1, mapZ, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX, mapZ + 1, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX, mapZ - 1, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX + 1, mapZ + 1, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX - 1, mapZ - 1, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX + 1, mapZ - 1, COLOR_OTHER_PLAYER);
+                canvas.setPixel(mapX - 1, mapZ + 1, COLOR_OTHER_PLAYER);
             }
         }
     }

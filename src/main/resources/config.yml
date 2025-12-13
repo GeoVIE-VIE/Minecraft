@@ -251,6 +251,9 @@ minimap:
   # Show NPCs on the minimap as green dots
   show-npcs: true
 
+  # Show other players on the minimap as blue dots
+  show-players: true
+
   # Show quest waypoints on the minimap
   show-quest-waypoints: true
 
