@@ -168,32 +168,33 @@ spawning:
   enabled: true
 
   # How many NPCs can exist per world (total)
-  max-npcs-per-world: 50
+  max-npcs-per-world: 30
 
   # How many NPCs should be near each player (within render distance)
   # Lower values = more sparse, natural feel
-  npcs-per-area: 8
+  # Note: Max 5 NPCs within 50 blocks of any location (hard limit)
+  npcs-per-area: 5
 
   # Spawn interval range (random between min and max for sporadic feel)
-  min-interval-seconds: 45
-  max-interval-seconds: 180
+  min-interval-seconds: 60
+  max-interval-seconds: 240
 
   # Batch size range (random NPCs per spawn cycle)
   min-batch-size: 1
-  max-batch-size: 3
+  max-batch-size: 2
 
   # Chance to actually spawn when interval triggers (percent)
   # Lower = more sporadic, less predictable
-  spawn-chance-percent: 60
+  spawn-chance-percent: 50
 
   # Minimum distance from player to spawn
-  min-distance-from-player: 20
+  min-distance-from-player: 25
 
   # Maximum distance from player to spawn
   max-distance-from-player: 80
 
   # Initial spawn on server start (random 0 to this number)
-  initial-spawn-count: 3
+  initial-spawn-count: 2
 
   # Distant travelers - NPCs that spawn far away and wander through
   travelers:
