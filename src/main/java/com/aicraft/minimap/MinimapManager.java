@@ -106,16 +106,22 @@ public class MinimapManager {
             meta.setMapView(mapView);
             meta.setDisplayName(ChatColor.GOLD + "Minimap" + (circular ? " (Circular)" : " (Square)"));
             meta.setLore(Arrays.asList(
-                ChatColor.GRAY + "Hold to view terrain",
-                ChatColor.GRAY + "Shows NPCs, quests, and waypoints",
-                ChatColor.YELLOW + "Use /minimap to toggle style"
+                ChatColor.GRAY + "Shows in corner when in offhand",
+                ChatColor.GRAY + "Displays NPCs, players, and quests",
+                ChatColor.YELLOW + "Use /minimap toggle to change style"
             ));
             mapItem.setItemMeta(meta);
         }
 
-        // Give to player
-        player.getInventory().addItem(mapItem);
-        player.sendMessage(ChatColor.GREEN + "You received a minimap! Hold it to view the terrain.");
+        // Put in offhand for HUD display, or give to inventory if offhand is full
+        ItemStack currentOffhand = player.getInventory().getItemInOffHand();
+        if (currentOffhand == null || currentOffhand.getType() == Material.AIR) {
+            player.getInventory().setItemInOffHand(mapItem);
+            player.sendMessage(ChatColor.GREEN + "Minimap equipped in offhand - it will show in the corner of your screen!");
+        } else {
+            player.getInventory().addItem(mapItem);
+            player.sendMessage(ChatColor.GREEN + "You received a minimap! Put it in your offhand (press F) to see it on screen.");
+        }
     }
 
     /**
