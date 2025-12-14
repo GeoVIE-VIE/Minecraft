@@ -1434,7 +1434,7 @@ public class NPCHomeBuilder {
     private int buildVilla(World world, int baseX, int baseY, int baseZ, Material[] mats, String faction, HouseSize size) {
         Material wall = mats[0];
         Material corner = mats[1];
-        Material floor = mats[2];
+        Material floorMat = mats[2];
         Material roofStairs = mats[3];
 
         // Size-based dimensions
@@ -1453,8 +1453,8 @@ public class NPCHomeBuilder {
         // Decorative floor with checkerboard pattern
         for (int x = 0; x < w; x++) {
             for (int z = 0; z < d; z++) {
-                Material floorMat = ((x + z) % 2 == 0) ? floor : Material.POLISHED_ANDESITE;
-                world.getBlockAt(baseX + x, baseY, baseZ + z).setType(floorMat);
+                Material tileMat = ((x + z) % 2 == 0) ? floorMat : Material.POLISHED_ANDESITE;
+                world.getBlockAt(baseX + x, baseY, baseZ + z).setType(tileMat);
             }
         }
 
@@ -1485,8 +1485,8 @@ public class NPCHomeBuilder {
         }
 
         // Ornate windows on all walls at each floor level
-        for (int floor = 0; floor < stories; floor++) {
-            int windowY = baseY + 2 + (floor * 4);
+        for (int story = 0; story < stories; story++) {
+            int windowY = baseY + 2 + (story * 4);
             // Front windows (flanking door on ground floor)
             world.getBlockAt(baseX + 2, windowY, baseZ).setType(Material.GLASS_PANE);
             world.getBlockAt(baseX + w - 3, windowY, baseZ).setType(Material.GLASS_PANE);
@@ -1509,21 +1509,21 @@ public class NPCHomeBuilder {
         }
 
         // Interior floors with grand staircases
-        for (int floor = 1; floor < stories; floor++) {
-            int floorY = baseY + (floor * 4);
+        for (int story = 1; story < stories; story++) {
+            int floorY = baseY + (story * 4);
             for (int x = 1; x < w - 1; x++) {
                 for (int z = 1; z < d - 1; z++) {
                     // Leave space for stairwell
                     if (!(x >= w - 4 && x <= w - 2 && z >= 1 && z <= 4)) {
-                        world.getBlockAt(baseX + x, floorY, baseZ + z).setType(floor);
+                        world.getBlockAt(baseX + x, floorY, baseZ + z).setType(floorMat);
                     }
                 }
             }
         }
 
         // Grand staircase
-        for (int floor = 0; floor < stories - 1; floor++) {
-            int startY = baseY + 1 + (floor * 4);
+        for (int story = 0; story < stories - 1; story++) {
+            int startY = baseY + 1 + (story * 4);
             for (int i = 0; i < 4; i++) {
                 world.getBlockAt(baseX + w - 3, startY + i, baseZ + 1 + i).setType(Material.QUARTZ_STAIRS);
                 world.getBlockAt(baseX + w - 2, startY + i, baseZ + 1 + i).setType(Material.QUARTZ_STAIRS);
