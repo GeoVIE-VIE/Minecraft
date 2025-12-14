@@ -57,16 +57,16 @@ public class NPCSpawner implements Listener {
     }
 
     private void loadConfig() {
-        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 50);
-        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 8);
-        minSpawnInterval = plugin.getConfig().getInt("spawning.min-interval-seconds", 45);
-        maxSpawnInterval = plugin.getConfig().getInt("spawning.max-interval-seconds", 180);
+        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 30);
+        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 5);
+        minSpawnInterval = plugin.getConfig().getInt("spawning.min-interval-seconds", 60);
+        maxSpawnInterval = plugin.getConfig().getInt("spawning.max-interval-seconds", 240);
         minBatchSize = plugin.getConfig().getInt("spawning.min-batch-size", 1);
-        maxBatchSize = plugin.getConfig().getInt("spawning.max-batch-size", 3);
-        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 20);
+        maxBatchSize = plugin.getConfig().getInt("spawning.max-batch-size", 2);
+        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 25);
         maxPlayerDistance = plugin.getConfig().getInt("spawning.max-distance-from-player", 80);
-        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 3);
-        spawnChancePercent = plugin.getConfig().getInt("spawning.spawn-chance-percent", 60);
+        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 2);
+        spawnChancePercent = plugin.getConfig().getInt("spawning.spawn-chance-percent", 50);
         travelersEnabled = plugin.getConfig().getBoolean("spawning.travelers.enabled", true);
         travelerChancePercent = plugin.getConfig().getInt("spawning.travelers.chance-percent", 25);
     }
@@ -314,14 +314,27 @@ public class NPCSpawner implements Listener {
         // Don't spawn in liquids
         if (below.isLiquid()) return false;
 
-        // Don't spawn too close to other NPCs (minimum 5 blocks apart)
+        // Check NPC density in this area - don't spawn if too many NPCs nearby
+        int nearbyNPCCount = 0;
         for (AINpc npc : npcManager.getAllNPCs()) {
             Location npcLoc = npc.getCurrentLocation();
             if (npcLoc != null &&
-                npcLoc.getWorld().equals(loc.getWorld()) &&
-                npcLoc.distance(loc) < 5) {
-                return false;
+                npcLoc.getWorld().equals(loc.getWorld())) {
+                double distance = npcLoc.distance(loc);
+                // Don't spawn within 10 blocks of another NPC
+                if (distance < 10) {
+                    return false;
+                }
+                // Count NPCs within 50 blocks
+                if (distance < 50) {
+                    nearbyNPCCount++;
+                }
             }
+        }
+
+        // Don't spawn if already 5+ NPCs within 50 blocks of this location
+        if (nearbyNPCCount >= 5) {
+            return false;
         }
 
         return true;
