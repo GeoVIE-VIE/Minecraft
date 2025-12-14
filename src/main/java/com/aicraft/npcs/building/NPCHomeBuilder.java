@@ -37,6 +37,12 @@ public class NPCHomeBuilder {
     private BukkitTask coupleMatchTask;
     private final Random random = new Random();
 
+    // Procedural building generator for unique buildings
+    private final ProceduralBuildingGenerator proceduralGenerator;
+
+    // Config: use procedural generation (creates unique buildings every time)
+    private boolean useProceduralGeneration = true;
+
     // House styles
     public enum HouseStyle {
         COTTAGE,      // Small cozy house with garden
@@ -93,6 +99,8 @@ public class NPCHomeBuilder {
     public NPCHomeBuilder(AICompanions plugin, NPCManager npcManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
+        this.proceduralGenerator = new ProceduralBuildingGenerator();
+        this.useProceduralGeneration = plugin.getConfig().getBoolean("npcs.building.procedural", true);
     }
 
     public void start() {
@@ -359,28 +367,43 @@ public class NPCHomeBuilder {
         int baseZ = loc.getBlockZ();
 
         int homeSize;
+        String buildType;
 
-        switch (style) {
-            case COTTAGE:
-                homeSize = buildCottage(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            case FARMHOUSE:
-                homeSize = buildFarmhouse(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            case CABIN:
-                homeSize = buildCabin(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            case TOWER:
-                homeSize = buildTower(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            case UNDERGROUND:
-                homeSize = buildUnderground(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            case VILLA:
-                homeSize = buildVilla(world, baseX, baseY, baseZ, mats, faction, size);
-                break;
-            default:
-                homeSize = buildCottage(world, baseX, baseY, baseZ, mats, faction, size);
+        // Use procedural generation for unique buildings, or template-based for consistency
+        if (useProceduralGeneration) {
+            // Generate a unique building plan based on NPC's UUID for reproducibility
+            ProceduralBuildingGenerator npcGenerator = new ProceduralBuildingGenerator(npc.getUuid().getMostSignificantBits() ^ System.currentTimeMillis());
+            ProceduralBuildingGenerator.BuildingPlan plan = npcGenerator.generatePlan(style, size);
+
+            homeSize = npcGenerator.buildFromPlan(world, baseX, baseY, baseZ, plan, mats, faction);
+            buildType = plan.toString();
+
+            plugin.debug("Generated procedural building: " + buildType);
+        } else {
+            // Use template-based building (original method)
+            switch (style) {
+                case COTTAGE:
+                    homeSize = buildCottage(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                case FARMHOUSE:
+                    homeSize = buildFarmhouse(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                case CABIN:
+                    homeSize = buildCabin(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                case TOWER:
+                    homeSize = buildTower(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                case UNDERGROUND:
+                    homeSize = buildUnderground(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                case VILLA:
+                    homeSize = buildVilla(world, baseX, baseY, baseZ, mats, faction, size);
+                    break;
+                default:
+                    homeSize = buildCottage(world, baseX, baseY, baseZ, mats, faction, size);
+            }
+            buildType = style.name().toLowerCase();
         }
 
         // Add name sign
@@ -396,11 +419,25 @@ public class NPCHomeBuilder {
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(loc) <= 50) {
                 player.sendMessage(ChatColor.GOLD + npc.getName() + ChatColor.GRAY +
-                        " has built a " + sizeStr + " " + style.name().toLowerCase() + " nearby!");
+                        " has built a unique " + sizeStr + " " + style.name().toLowerCase() + " nearby!");
             }
         }
 
-        plugin.debug(npc.getName() + " built a " + sizeStr + " " + style + " at " + baseX + ", " + baseY + ", " + baseZ);
+        plugin.debug(npc.getName() + " built a " + sizeStr + " " + buildType + " at " + baseX + ", " + baseY + ", " + baseZ);
+    }
+
+    /**
+     * Enable or disable procedural generation
+     */
+    public void setProceduralGeneration(boolean enabled) {
+        this.useProceduralGeneration = enabled;
+    }
+
+    /**
+     * Check if procedural generation is enabled
+     */
+    public boolean isProceduralGenerationEnabled() {
+        return useProceduralGeneration;
     }
 
     /**

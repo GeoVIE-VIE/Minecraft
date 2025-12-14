@@ -72,6 +72,10 @@ npcs:
   # NPC home building
   building:
     enabled: true
+    # Enable procedural generation for unique buildings every time
+    # When true: Each building is procedurally generated with random floor plans, roofs, and rooms
+    # When false: Uses template-based designs (consistent but may repeat)
+    procedural: true
 
   # NPC television system
   television:
