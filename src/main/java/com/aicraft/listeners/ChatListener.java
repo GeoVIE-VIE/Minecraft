@@ -491,7 +491,7 @@ public class ChatListener implements Listener {
         String history = memoryManager.getConversationHistory(npc, player.getUniqueId());
 
         // Generate AI response asynchronously
-        aiManager.generateResponse(npc, player.getName(), message, history)
+        aiManager.generateResponse(npc, player.getName(), player.getUniqueId(), message, history)
                 .thenAccept(response -> {
                     // Run on main thread for Bukkit API calls
                     plugin.getServer().getScheduler().runTask(plugin, () -> {

@@ -18,6 +18,10 @@ import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.*;
@@ -421,6 +425,94 @@ public class QuestProgressListener implements Listener {
         Map<UUID, Set<Location>> playerBlocks = buildQuestBlocks.get(playerUuid);
         if (playerBlocks != null) {
             playerBlocks.remove(questUuid);
+        }
+    }
+
+    /**
+     * Save quest state when player quits
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player player = event.getPlayer();
+        savePlayerQuests(player);
+
+        // Clean up cooldown tracking
+        movementCooldown.remove(player.getUniqueId());
+        buildQuestBlocks.remove(player.getUniqueId());
+
+        plugin.debug("Saved quest state for disconnecting player: " + player.getName());
+    }
+
+    /**
+     * Load quest state when player joins
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+
+        // Load quests from database (this is handled by QuestManager.getActiveQuests)
+        List<Quest> quests = questManager.getActiveQuests(player.getUniqueId());
+
+        if (!quests.isEmpty()) {
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                player.sendMessage(ChatColor.AQUA + "You have " + quests.size() + " active quest(s).");
+                player.sendMessage(ChatColor.GRAY + "Use /quest list to view them.");
+            }, 40L); // 2 second delay after join
+        }
+
+        plugin.debug("Loaded " + quests.size() + " quests for joining player: " + player.getName());
+    }
+
+    /**
+     * Save quest state when player dies (before respawn)
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        savePlayerQuests(player);
+        plugin.debug("Saved quest state for dying player: " + player.getName());
+    }
+
+    /**
+     * Notify player of quests when they respawn
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Player player = event.getPlayer();
+
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            List<Quest> quests = questManager.getActiveQuests(player.getUniqueId());
+
+            // Check for READY_TO_TURN_IN quests
+            long completedCount = quests.stream()
+                    .filter(q -> q.getStatus() == Quest.QuestStatus.READY_TO_TURN_IN)
+                    .count();
+
+            if (completedCount > 0) {
+                player.sendMessage(ChatColor.GREEN + "Reminder: You have " + completedCount +
+                        " completed quest(s) ready to turn in!");
+            }
+        }, 20L); // 1 second after respawn
+    }
+
+    /**
+     * Save quest state when player changes world
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        Player player = event.getPlayer();
+        savePlayerQuests(player);
+        plugin.debug("Saved quest state for world change: " + player.getName() +
+                " from " + event.getFrom().getName() + " to " + player.getWorld().getName());
+    }
+
+    /**
+     * Save all active quests for a player to the database
+     */
+    private void savePlayerQuests(Player player) {
+        List<Quest> quests = questManager.getActiveQuests(player.getUniqueId());
+        for (Quest quest : quests) {
+            plugin.getDatabaseManager().saveQuest(quest);
         }
     }
 }

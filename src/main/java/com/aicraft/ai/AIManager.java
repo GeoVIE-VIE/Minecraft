@@ -7,6 +7,9 @@ import com.aicraft.ai.providers.OpenAIProvider;
 import com.aicraft.npcs.AINpc;
 import org.bukkit.Location;
 
+import com.aicraft.quests.Quest;
+import com.aicraft.quests.QuestManager;
+
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -52,10 +55,10 @@ public class AIManager {
     /**
      * Generate a chat response from an NPC asynchronously
      */
-    public CompletableFuture<String> generateResponse(AINpc npc, String playerName, String playerMessage, String conversationHistory) {
+    public CompletableFuture<String> generateResponse(AINpc npc, String playerName, UUID playerUuid, String playerMessage, String conversationHistory) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                String prompt = buildPrompt(npc, playerName, playerMessage, conversationHistory);
+                String prompt = buildPrompt(npc, playerName, playerUuid, playerMessage, conversationHistory);
                 plugin.getLogger().info("Sending AI request for NPC: " + npc.getName() + " (player: " + playerName + ")");
 
                 String response = primaryProvider.chat(prompt);
@@ -77,7 +80,7 @@ public class AIManager {
                 plugin.getLogger().warning("AI request failed: " + e.getMessage());
                 e.printStackTrace();
                 try {
-                    String prompt = buildPrompt(npc, playerName, playerMessage, conversationHistory);
+                    String prompt = buildPrompt(npc, playerName, playerUuid, playerMessage, conversationHistory);
                     return fallbackProvider.chat(prompt);
                 } catch (Exception e2) {
                     plugin.getLogger().warning("Fallback AI also failed: " + e2.getMessage());
@@ -143,7 +146,7 @@ public class AIManager {
         return Math.max(0, rateLimit - tracker.getRequestsInLastMinute());
     }
 
-    private String buildPrompt(AINpc npc, String playerName, String playerMessage, String conversationHistory) {
+    private String buildPrompt(AINpc npc, String playerName, UUID playerUuid, String playerMessage, String conversationHistory) {
         StringBuilder prompt = new StringBuilder();
 
         prompt.append("You are roleplaying as an NPC in a Minecraft world. Stay completely in character.\n\n");
@@ -161,6 +164,13 @@ public class AIManager {
         // Add dialect instructions
         Dialect dialect = npc.getDialect();
         prompt.append("Speech Style: ").append(dialect.getName()).append("\n");
+
+        // Add quest context for this player
+        String questInfo = getQuestInfoForPlayer(npc, playerUuid);
+        if (!questInfo.isEmpty()) {
+            prompt.append("\n=== QUESTS WITH THIS PLAYER ===\n");
+            prompt.append(questInfo);
+        }
 
         // Add awareness of nearby NPCs
         String nearbyNPCInfo = getNearbyNPCInfo(npc);
@@ -225,6 +235,39 @@ public class AIManager {
                 .append(" (").append(other.getFaction()).append(")")
                 .append(relationship).append("\n");
             count++;
+        }
+
+        return info.toString();
+    }
+
+    /**
+     * Get quest information for a specific player from this NPC
+     */
+    private String getQuestInfoForPlayer(AINpc npc, UUID playerUuid) {
+        StringBuilder info = new StringBuilder();
+        QuestManager questManager = plugin.getQuestManager();
+        if (questManager == null || playerUuid == null) return "";
+
+        List<Quest> playerQuests = questManager.getActiveQuests(playerUuid);
+        if (playerQuests == null || playerQuests.isEmpty()) return "";
+
+        for (Quest quest : playerQuests) {
+            // Only include quests from this NPC
+            if (quest.getNpcUuid() == null || !quest.getNpcUuid().equals(npc.getUuid())) continue;
+
+            info.append("- Quest: \"").append(quest.getTitle()).append("\"\n");
+            info.append("  Objective: ").append(quest.getObjective()).append("\n");
+            info.append("  Progress: ").append(quest.getProgressString()).append("\n");
+
+            if (quest.getStatus() == Quest.QuestStatus.READY_TO_TURN_IN) {
+                info.append("  STATUS: COMPLETED - Player is ready to turn in this quest! Acknowledge their success and give them their reward.\n");
+            } else if (quest.getStatus() == Quest.QuestStatus.ACTIVE) {
+                info.append("  STATUS: In progress - Encourage the player or offer hints.\n");
+            }
+        }
+
+        if (info.length() > 0) {
+            info.append("\nIMPORTANT: If the player mentions completing a quest that shows COMPLETED status, thank them warmly and tell them you're giving their reward!\n");
         }
 
         return info.toString();
