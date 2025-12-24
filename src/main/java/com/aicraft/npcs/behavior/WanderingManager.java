@@ -414,28 +414,46 @@ public class WanderingManager {
 
     /**
      * Find a valid wander target location
+     * Respects NPC's home territory - they won't wander beyond their boundary
      */
     private Location findWanderTarget(AINpc npc) {
-        Location spawn = npc.getSpawnLocation();
+        Location home = npc.getHomeLocation(); // Use home, not just spawn
         Location current = npc.getCurrentLocation();
 
-        if (spawn == null || spawn.getWorld() == null) return null;
+        if (home == null || home.getWorld() == null) {
+            home = npc.getSpawnLocation();
+            if (home == null || home.getWorld() == null) return null;
+        }
 
-        // Try to find a valid location
+        // Determine wander radius based on NPC type
+        int wanderRadius;
+        if (npc.isNomadic()) {
+            // Nomadic NPCs (Wanderers) can roam freely
+            wanderRadius = maxWanderDistance;
+        } else {
+            // Other NPCs stay within their home boundary
+            wanderRadius = npc.getHomeBoundaryRadius();
+        }
+
+        // Try to find a valid location within boundary
         for (int attempts = 0; attempts < 10; attempts++) {
-            // Random offset from current position
-            double offsetX = (random.nextDouble() - 0.5) * 20;
-            double offsetZ = (random.nextDouble() - 0.5) * 20;
+            // Random offset - smaller movements for town NPCs
+            double moveRadius = npc.isNomadic() ? 20 : Math.min(10, wanderRadius / 2.0);
+            double offsetX = (random.nextDouble() - 0.5) * moveRadius * 2;
+            double offsetZ = (random.nextDouble() - 0.5) * moveRadius * 2;
 
             Location target = current.clone().add(offsetX, 0, offsetZ);
 
-            // Check distance from spawn
-            if (target.distance(spawn) > maxWanderDistance) {
-                // Too far, move back towards spawn
-                target = spawn.clone().add(
-                        (random.nextDouble() - 0.5) * maxWanderDistance,
+            // Check distance from home
+            double distFromHome = target.distance(home);
+            if (distFromHome > wanderRadius) {
+                // Too far from home - move back towards home instead
+                double angle = random.nextDouble() * 2 * Math.PI;
+                double radius = random.nextDouble() * wanderRadius * 0.7; // Stay well within boundary
+                target = home.clone().add(
+                        Math.cos(angle) * radius,
                         0,
-                        (random.nextDouble() - 0.5) * maxWanderDistance
+                        Math.sin(angle) * radius
                 );
             }
 
@@ -446,7 +464,8 @@ public class WanderingManager {
             }
         }
 
-        return null;
+        // If no valid target found, try to return home
+        return findSafeLocation(home.clone());
     }
 
     /**

@@ -17,6 +17,8 @@ import com.aicraft.minimap.MinimapManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
+import com.aicraft.npcs.building.BillboardManager;
+import com.aicraft.npcs.building.NPCBuilder;
 import com.aicraft.npcs.building.NPCHomeBuilder;
 import com.aicraft.npcs.building.NPCSettlementDefense;
 import com.aicraft.npcs.social.NPCSocialManager;
@@ -54,6 +56,8 @@ public class AICompanions extends JavaPlugin {
     private ChatListener chatListener;
     private MinimapManager minimapManager;
     private ExoticItemManager exoticItemManager;
+    private BillboardManager billboardManager;
+    private NPCBuilder npcBuilder;
 
     @Override
     public void onEnable() {
@@ -142,6 +146,16 @@ public class AICompanions extends JavaPlugin {
             minimapManager.stop();
         }
 
+        // Stop billboard manager
+        if (billboardManager != null) {
+            billboardManager.stop();
+        }
+
+        // Stop NPC builder
+        if (npcBuilder != null) {
+            npcBuilder.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -187,6 +201,12 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing minimap manager...");
         minimapManager = new MinimapManager(this, npcManager, questManager);
+
+        getLogger().info("Initializing billboard manager...");
+        billboardManager = new BillboardManager(this, npcManager);
+
+        getLogger().info("Initializing NPC builder...");
+        npcBuilder = new NPCBuilder(this, npcManager);
     }
 
     private void registerCommands() {
@@ -273,6 +293,16 @@ public class AICompanions extends JavaPlugin {
         if (getConfig().getBoolean("minimap.enabled", true)) {
             minimapManager.start();
         }
+
+        // Start billboard manager
+        if (getConfig().getBoolean("billboards.enabled", true)) {
+            billboardManager.start();
+        }
+
+        // Start NPC builder (dynamic torch/wall placement)
+        if (getConfig().getBoolean("npcs.building.dynamic-enabled", true)) {
+            npcBuilder.start();
+        }
     }
 
     public void reload() {
@@ -341,6 +371,14 @@ public class AICompanions extends JavaPlugin {
 
     public ExoticItemManager getExoticItemManager() {
         return exoticItemManager;
+    }
+
+    public BillboardManager getBillboardManager() {
+        return billboardManager;
+    }
+
+    public NPCBuilder getNPCBuilder() {
+        return npcBuilder;
     }
 
     public boolean isDebug() {

@@ -37,6 +37,12 @@ public class AINpc {
     private boolean canTrade;
     private boolean canGiveQuests;
 
+    // Home territory system - NPCs stay within their home boundary
+    private Location homeLocation;          // Center of NPC's home territory (town center, house, etc.)
+    private int homeBoundaryRadius;         // How far NPC can roam from home (default: 15 for town, 100 for wanderers)
+    private boolean isNomadic;              // True for NPCs with no fixed home (Wanderers, some Bandits)
+    private UUID settlementId;              // ID of settlement this NPC belongs to (if any)
+
     // Conversation engagement - NPC stops and focuses on this player
     private UUID engagedWithPlayer;
     private long engagementStartTime;
@@ -57,6 +63,8 @@ public class AINpc {
         this.canTrade = false;
         this.canGiveQuests = true;
         this.currentMood = "neutral";
+        this.homeBoundaryRadius = 15; // Default: stay within 15 blocks of home
+        this.isNomadic = false;
     }
 
     // === Getters and Setters ===
@@ -221,6 +229,64 @@ public class AINpc {
 
     public void setCanGiveQuests(boolean canGiveQuests) {
         this.canGiveQuests = canGiveQuests;
+    }
+
+    // === Home Territory Methods ===
+
+    /**
+     * Get the NPC's home location (center of their territory)
+     * Falls back to spawn location if no home is set
+     */
+    public Location getHomeLocation() {
+        return homeLocation != null ? homeLocation : spawnLocation;
+    }
+
+    public void setHomeLocation(Location homeLocation) {
+        this.homeLocation = homeLocation;
+    }
+
+    /**
+     * Get how far this NPC can roam from their home
+     */
+    public int getHomeBoundaryRadius() {
+        return homeBoundaryRadius;
+    }
+
+    public void setHomeBoundaryRadius(int radius) {
+        this.homeBoundaryRadius = radius;
+    }
+
+    /**
+     * Check if this NPC is nomadic (no fixed home, can roam freely)
+     */
+    public boolean isNomadic() {
+        return isNomadic;
+    }
+
+    public void setNomadic(boolean nomadic) {
+        this.isNomadic = nomadic;
+    }
+
+    /**
+     * Get the settlement this NPC belongs to
+     */
+    public UUID getSettlementId() {
+        return settlementId;
+    }
+
+    public void setSettlementId(UUID settlementId) {
+        this.settlementId = settlementId;
+    }
+
+    /**
+     * Check if the NPC is within their home boundary
+     */
+    public boolean isWithinHomeBoundary() {
+        Location current = getCurrentLocation();
+        Location home = getHomeLocation();
+        if (current == null || home == null) return true;
+        if (!current.getWorld().equals(home.getWorld())) return false;
+        return current.distance(home) <= homeBoundaryRadius;
     }
 
     /**

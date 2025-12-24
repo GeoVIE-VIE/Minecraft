@@ -233,6 +233,7 @@ public class NPCManager {
 
     /**
      * Configure NPC behavior based on faction
+     * Sets wandering, hostility, trading, and home territory boundaries
      */
     private void configureFactionBehavior(AINpc npc, String faction) {
         if (faction == null) return;
@@ -243,36 +244,48 @@ public class NPCManager {
                 npc.setHostile(false); // Deceptive, not openly hostile
                 npc.setCanTrade(false);
                 npc.setCanGiveQuests(true); // Dark quests
+                npc.setHomeBoundaryRadius(10); // Stay very close to ritual sites
+                npc.setNomadic(false);
             }
             case "bandits", "raiders" -> {
                 npc.setCanWander(true);
                 npc.setHostile(true); // Hostile to all
                 npc.setCanTrade(false);
                 npc.setCanGiveQuests(false);
+                npc.setHomeBoundaryRadius(30); // Patrol around their camp
+                npc.setNomadic(false); // Stay near their camp
             }
             case "guards" -> {
-                npc.setCanWander(false); // Stay at posts
+                npc.setCanWander(true); // Patrol within settlement
                 npc.setHostile(false);
                 npc.setCanTrade(false);
                 npc.setCanGiveQuests(true);
+                npc.setHomeBoundaryRadius(25); // Patrol around their post
+                npc.setNomadic(false);
             }
             case "merchants" -> {
-                npc.setCanWander(true); // Travel to sell goods
+                npc.setCanWander(true); // Move within marketplace
                 npc.setHostile(false);
                 npc.setCanTrade(true);
                 npc.setCanGiveQuests(true);
+                npc.setHomeBoundaryRadius(20); // Stay near their shop/stall
+                npc.setNomadic(false);
             }
             case "villagers" -> {
-                npc.setCanWander(false); // Stay in villages
+                npc.setCanWander(true); // Move around village
                 npc.setHostile(false);
                 npc.setCanTrade(false);
                 npc.setCanGiveQuests(true);
+                npc.setHomeBoundaryRadius(15); // Stay close to home
+                npc.setNomadic(false);
             }
             case "wanderers" -> {
-                npc.setCanWander(true); // Always wandering
+                npc.setCanWander(true); // True nomads
                 npc.setHostile(false);
                 npc.setCanTrade(false);
                 npc.setCanGiveQuests(true);
+                npc.setHomeBoundaryRadius(100); // Very large range
+                npc.setNomadic(true); // Can roam freely!
             }
         }
     }
