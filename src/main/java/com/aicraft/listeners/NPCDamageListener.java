@@ -4,6 +4,7 @@ import com.aicraft.AICompanions;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.behavior.WanderingManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -24,11 +25,13 @@ public class NPCDamageListener implements Listener {
     private final AICompanions plugin;
     private final NPCManager npcManager;
     private final FactionManager factionManager;
+    private final WanderingManager wanderingManager;
 
-    public NPCDamageListener(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
+    public NPCDamageListener(AICompanions plugin, NPCManager npcManager, FactionManager factionManager, WanderingManager wanderingManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
         this.factionManager = factionManager;
+        this.wanderingManager = wanderingManager;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -81,6 +84,14 @@ public class NPCDamageListener implements Listener {
 
         // Update mood when damaged
         npc.setCurrentMood("distressed");
+
+        // Trigger defense behavior for non-hostile NPCs
+        if (event instanceof EntityDamageByEntityEvent damageByEntity) {
+            Entity damager = damageByEntity.getDamager();
+            if (wanderingManager != null) {
+                wanderingManager.onNPCAttacked(npc, damager);
+            }
+        }
 
         plugin.debug(npc.getName() + " took " + event.getFinalDamage() +
                 " damage, health now: " + npc.getHealth());

@@ -5,6 +5,8 @@ import com.aicraft.commands.*;
 import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.gui.QuestTrackerGUI;
+import com.aicraft.items.ExoticItemManager;
+import com.aicraft.items.ExoticItemListener;
 import com.aicraft.listeners.ChatListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
@@ -51,6 +53,7 @@ public class AICompanions extends JavaPlugin {
     private NPCSettlementDefense settlementDefense;
     private ChatListener chatListener;
     private MinimapManager minimapManager;
+    private ExoticItemManager exoticItemManager;
 
     @Override
     public void onEnable() {
@@ -164,6 +167,9 @@ public class AICompanions extends JavaPlugin {
         getLogger().info("Initializing quest manager...");
         questManager = new QuestManager(this, databaseManager, aiManager);
 
+        getLogger().info("Initializing exotic item manager...");
+        exoticItemManager = new ExoticItemManager(this);
+
         getLogger().info("Initializing wandering manager...");
         wanderingManager = new WanderingManager(this, npcManager, factionManager);
 
@@ -211,8 +217,9 @@ public class AICompanions extends JavaPlugin {
         chatListener = new ChatListener(this, npcManager, aiManager, memoryManager);
         getServer().getPluginManager().registerEvents(chatListener, this);
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
-        getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
+        getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager, wanderingManager), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
+        getServer().getPluginManager().registerEvents(new ExoticItemListener(this, exoticItemManager), this);
     }
 
     private void startTasks() {
@@ -330,6 +337,10 @@ public class AICompanions extends JavaPlugin {
 
     public MinimapManager getMinimapManager() {
         return minimapManager;
+    }
+
+    public ExoticItemManager getExoticItemManager() {
+        return exoticItemManager;
     }
 
     public boolean isDebug() {

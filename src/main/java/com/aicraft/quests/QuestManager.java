@@ -3,6 +3,8 @@ package com.aicraft.quests;
 import com.aicraft.AICompanions;
 import com.aicraft.ai.AIManager;
 import com.aicraft.database.DatabaseManager;
+import com.aicraft.items.ExoticItem;
+import com.aicraft.items.ExoticItemManager;
 import com.aicraft.npcs.AINpc;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
@@ -414,10 +416,60 @@ public class QuestManager {
             }
         }
 
+        // Chance for exotic item reward based on quest difficulty
+        ExoticItemManager exoticManager = plugin.getExoticItemManager();
+        if (exoticManager != null) {
+            double exoticChance = getExoticRewardChance(quest);
+            Random random = new Random();
+            if (random.nextDouble() < exoticChance) {
+                ExoticItem exoticReward = exoticManager.getRandomQuestReward();
+                if (exoticReward != null) {
+                    // Filter by faction if NPC has one
+                    if (npc != null && exoticReward.getRequiredFaction() != null &&
+                            !exoticReward.getRequiredFaction().equalsIgnoreCase(npc.getFaction())) {
+                        // Try to get a faction-appropriate item
+                        List<ExoticItem> factionItems = exoticManager.getItemsForFaction(npc.getFaction());
+                        if (!factionItems.isEmpty()) {
+                            exoticReward = factionItems.get(random.nextInt(factionItems.size()));
+                        }
+                    }
+
+                    player.getInventory().addItem(exoticReward.createItemStack(plugin));
+                    player.sendMessage("");
+                    player.sendMessage(exoticReward.getRarity().getColor() + "" + ChatColor.BOLD +
+                            "EXOTIC ITEM REWARD!");
+                    player.sendMessage(exoticReward.getRarity().getColor() + "  " + exoticReward.getName());
+                    player.sendMessage("");
+
+                    // Play special effect
+                    player.getWorld().playSound(player.getLocation(),
+                            org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                }
+            }
+        }
+
         player.sendMessage(ChatColor.GOLD + "Quest completed: " + quest.getTitle());
         database.saveQuest(quest);
 
         return true;
+    }
+
+    /**
+     * Calculate chance for exotic item reward based on quest properties
+     */
+    private double getExoticRewardChance(Quest quest) {
+        double baseChance = 0.15; // 15% base chance
+
+        // Harder quests have better chances
+        if (quest.getAmount() > 15) baseChance += 0.1;
+        if (quest.getRewardXp() > 150) baseChance += 0.1;
+
+        // Quest type modifiers
+        String type = quest.getQuestType();
+        if ("kill".equalsIgnoreCase(type)) baseChance += 0.05;
+        if ("explore".equalsIgnoreCase(type)) baseChance += 0.1;
+
+        return Math.min(baseChance, 0.5); // Cap at 50%
     }
 
     /**
