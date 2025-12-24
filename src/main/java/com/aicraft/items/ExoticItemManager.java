@@ -539,6 +539,73 @@ public class ExoticItemManager {
                 .damageModifier(1.0)
                 .build());
 
+        // ========== INVISIBILITY CLOAKS (4 items - Chest loot only) ==========
+
+        register(new Builder("true_invisibility_cloak")
+                .name("Cloak of True Invisibility")
+                .material(Material.LEATHER_CHESTPLATE)
+                .rarity(Rarity.LEGENDARY)
+                .category(ItemCategory.ARMOR)
+                .description("Woven from shadows themselves")
+                .effect("Permanent invisibility while worn")
+                .effect("Mobs cannot detect you")
+                .drawback("Cannot deal damage while invisible")
+                .drawback("Taking damage reveals you for 5s")
+                .dropChance(0.008)
+                .questReward(false)
+                .craftable(false)
+                .glowing(true)
+                .build());
+
+        register(new Builder("phantom_cloak")
+                .name("Phantom Cloak")
+                .material(Material.CHAINMAIL_CHESTPLATE)
+                .rarity(Rarity.EPIC)
+                .category(ItemCategory.ARMOR)
+                .description("Phase through the physical realm")
+                .effect("Invisible + can walk through mobs")
+                .effect("No collision with entities")
+                .drawback("Visible when sprinting")
+                .drawback("Glows faintly at night")
+                .dropChance(0.01)
+                .questReward(false)
+                .craftable(false)
+                .build());
+
+        register(new Builder("thiefs_cloak")
+                .name("Thief's Cloak")
+                .material(Material.LEATHER_CHESTPLATE)
+                .rarity(Rarity.RARE)
+                .category(ItemCategory.ARMOR)
+                .description("Perfect for sneaky operations")
+                .effect("Invisible while sneaking")
+                .effect("Silent footsteps")
+                .drawback("Visible when standing/walking")
+                .drawback("Glows when near NPCs (within 5 blocks)")
+                .dropChance(0.015)
+                .questReward(false)
+                .craftable(false)
+                .build());
+
+        register(new Builder("cursed_cloak")
+                .name("Cursed Cloak of Shadows")
+                .material(Material.NETHERITE_CHESTPLATE)
+                .rarity(Rarity.MYTHIC)
+                .category(ItemCategory.ARMOR)
+                .description("A cloak that hungers for life")
+                .effect("Full invisibility always")
+                .effect("Invisible to ALL detection")
+                .effect("+50% movement speed")
+                .drawback("Drains 0.5 hearts every 3 seconds")
+                .drawback("Cannot be removed while below 3 hearts")
+                .selfDamage(1.0)
+                .speedModifier(1.5)
+                .dropChance(0.003)
+                .questReward(false)
+                .craftable(false)
+                .glowing(true)
+                .build());
+
         // ========== ACCESSORIES (8 items) ==========
 
         register(new Builder("lucky_coin")

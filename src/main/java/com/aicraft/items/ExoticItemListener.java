@@ -6,6 +6,7 @@ import com.aicraft.npcs.AINpc;
 import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.entity.*;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -41,6 +42,10 @@ public class ExoticItemListener implements Listener {
     // Cooldowns for various effects
     private final Map<UUID, Long> doubleJumpCooldown = new HashMap<>();
     private final Map<UUID, Long> chaosOrbCooldown = new HashMap<>();
+
+    // Invisibility cloak tracking
+    private final Map<UUID, Long> trueInvisibilityRevealedUntil = new HashMap<>(); // Tracks when revealed players become invisible again
+    private final Map<UUID, Long> cursedCloakLastDrain = new HashMap<>(); // Tracks health drain timing
 
     public ExoticItemListener(AICompanions plugin, ExoticItemManager itemManager) {
         this.plugin = plugin;
@@ -292,6 +297,72 @@ public class ExoticItemListener implements Listener {
         }
     }
 
+    // ========== INVISIBILITY CLOAK HANDLERS ==========
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerTakeDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+
+        // Check for true_invisibility_cloak - reveal when damaged
+        for (ItemStack armor : player.getInventory().getArmorContents()) {
+            if (armor == null) continue;
+            String itemId = itemManager.getExoticItemId(armor);
+            if ("true_invisibility_cloak".equals(itemId)) {
+                // Reveal for 5 seconds
+                trueInvisibilityRevealedUntil.put(player.getUniqueId(), System.currentTimeMillis() + 5000);
+                player.removePotionEffect(PotionEffectType.INVISIBILITY);
+                player.sendMessage(ChatColor.RED + "The cloak's invisibility falters as you take damage!");
+                player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 20, 0.5, 1, 0.5, 0.1);
+                break;
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPlayerDealDamageWithCloak(EntityDamageByEntityEvent event) {
+        // Check if attacker is wearing true_invisibility_cloak and is invisible
+        if (!(event.getDamager() instanceof Player player)) return;
+
+        for (ItemStack armor : player.getInventory().getArmorContents()) {
+            if (armor == null) continue;
+            String itemId = itemManager.getExoticItemId(armor);
+            if ("true_invisibility_cloak".equals(itemId)) {
+                // Check if currently invisible (not revealed)
+                Long revealedUntil = trueInvisibilityRevealedUntil.get(player.getUniqueId());
+                boolean isRevealed = revealedUntil != null && System.currentTimeMillis() < revealedUntil;
+
+                if (!isRevealed) {
+                    event.setCancelled(true);
+                    player.sendMessage(ChatColor.GRAY + "You cannot deal damage while truly invisible...");
+                    return;
+                }
+                break;
+            }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        // Check if trying to remove cursed_cloak while below 3 hearts
+        ItemStack current = event.getCurrentItem();
+        if (current == null) return;
+
+        String itemId = itemManager.getExoticItemId(current);
+        if ("cursed_cloak".equals(itemId)) {
+            // Check if it's in armor slot
+            int slot = event.getRawSlot();
+            if (slot >= 5 && slot <= 8) { // Armor slots in player inventory
+                if (player.getHealth() <= 6) { // 3 hearts or less
+                    event.setCancelled(true);
+                    player.sendMessage(ChatColor.DARK_RED + "The cursed cloak refuses to release you!");
+                    player.getWorld().playSound(player.getLocation(), Sound.ENTITY_WITHER_AMBIENT, 0.5f, 0.5f);
+                }
+            }
+        }
+    }
+
     // ========== TOOL EFFECTS ==========
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -469,6 +540,77 @@ public class ExoticItemListener implements Listener {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.DOLPHINS_GRACE, 40, 0, false, false));
                     } else {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, false, false));
+                    }
+                }
+
+                // ========== INVISIBILITY CLOAKS ==========
+
+                case "true_invisibility_cloak" -> {
+                    // Permanent invisibility unless recently damaged
+                    Long revealedUntil = trueInvisibilityRevealedUntil.get(player.getUniqueId());
+                    boolean isRevealed = revealedUntil != null && System.currentTimeMillis() < revealedUntil;
+
+                    if (!isRevealed) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 40, 0, false, false));
+                        // Make mobs ignore the player
+                        for (Entity e : player.getNearbyEntities(32, 16, 32)) {
+                            if (e instanceof Mob mob && mob.getTarget() == player) {
+                                mob.setTarget(null);
+                            }
+                        }
+                    } else {
+                        // Show particles when revealed
+                        player.getWorld().spawnParticle(Particle.SMOKE, player.getLocation().add(0, 1, 0), 3, 0.3, 0.5, 0.3, 0);
+                    }
+                }
+
+                case "phantom_cloak" -> {
+                    // Invisible unless sprinting
+                    if (!player.isSprinting()) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 40, 0, false, false));
+                    }
+                    // Glow faintly at night
+                    long time = player.getWorld().getTime();
+                    boolean isNight = time >= 12300 && time <= 23850;
+                    if (isNight) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false));
+                    }
+                }
+
+                case "thiefs_cloak" -> {
+                    // Invisible only while sneaking
+                    if (player.isSneaking()) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 40, 0, false, false));
+                    }
+                    // Glow when near NPCs (within 5 blocks)
+                    boolean nearNpc = false;
+                    for (Entity e : player.getNearbyEntities(5, 5, 5)) {
+                        if (plugin.getNPCManager().getNPCFromEntity(e) != null) {
+                            nearNpc = true;
+                            break;
+                        }
+                    }
+                    if (nearNpc) {
+                        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false));
+                    }
+                }
+
+                case "cursed_cloak" -> {
+                    // Full invisibility always
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 40, 0, false, false));
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 0, false, false));
+
+                    // Drain 0.5 hearts every 3 seconds
+                    Long lastDrain = cursedCloakLastDrain.get(player.getUniqueId());
+                    if (lastDrain == null || System.currentTimeMillis() - lastDrain >= 3000) {
+                        player.damage(1.0); // 0.5 hearts
+                        cursedCloakLastDrain.put(player.getUniqueId(), System.currentTimeMillis());
+                        player.getWorld().spawnParticle(Particle.SOUL, player.getLocation().add(0, 1, 0), 5, 0.3, 0.5, 0.3, 0.02);
+
+                        // Cannot be removed while below 3 hearts
+                        if (player.getHealth() <= 6) {
+                            player.sendMessage(ChatColor.DARK_RED + "The cursed cloak clings to you... you cannot remove it!");
+                        }
                     }
                 }
             }
