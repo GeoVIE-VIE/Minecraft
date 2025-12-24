@@ -16,6 +16,7 @@ import com.aicraft.minimap.MinimapCommand;
 import com.aicraft.minimap.MinimapManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
+import com.aicraft.npcs.behavior.BanditRaidManager;
 import com.aicraft.npcs.behavior.WanderingManager;
 import com.aicraft.npcs.building.BillboardManager;
 import com.aicraft.npcs.building.NPCBuilder;
@@ -58,6 +59,7 @@ public class AICompanions extends JavaPlugin {
     private ExoticItemManager exoticItemManager;
     private BillboardManager billboardManager;
     private NPCBuilder npcBuilder;
+    private BanditRaidManager banditRaidManager;
 
     @Override
     public void onEnable() {
@@ -156,6 +158,11 @@ public class AICompanions extends JavaPlugin {
             npcBuilder.stop();
         }
 
+        // Stop bandit raid manager
+        if (banditRaidManager != null) {
+            banditRaidManager.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -207,6 +214,9 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing NPC builder...");
         npcBuilder = new NPCBuilder(this, npcManager);
+
+        getLogger().info("Initializing bandit raid manager...");
+        banditRaidManager = new BanditRaidManager(this, npcManager, factionManager, wanderingManager);
     }
 
     private void registerCommands() {
@@ -303,6 +313,11 @@ public class AICompanions extends JavaPlugin {
         if (getConfig().getBoolean("npcs.building.dynamic-enabled", true)) {
             npcBuilder.start();
         }
+
+        // Start bandit raid manager
+        if (getConfig().getBoolean("raids.enabled", true)) {
+            banditRaidManager.start();
+        }
     }
 
     public void reload() {
@@ -379,6 +394,10 @@ public class AICompanions extends JavaPlugin {
 
     public NPCBuilder getNPCBuilder() {
         return npcBuilder;
+    }
+
+    public BanditRaidManager getBanditRaidManager() {
+        return banditRaidManager;
     }
 
     public boolean isDebug() {

@@ -427,8 +427,13 @@ public class WanderingManager {
 
         // Determine wander radius based on NPC type
         int wanderRadius;
-        if (npc.isNomadic()) {
-            // Nomadic NPCs (Wanderers) can roam freely
+
+        // Check if this bandit is currently raiding (ignore home boundary)
+        BanditRaidManager raidManager = plugin.getBanditRaidManager();
+        boolean isRaiding = raidManager != null && raidManager.isRaiding(npc.getUuid());
+
+        if (npc.isNomadic() || isRaiding) {
+            // Nomadic NPCs (Wanderers) or raiding bandits can roam freely
             wanderRadius = maxWanderDistance;
         } else {
             // Other NPCs stay within their home boundary
