@@ -388,6 +388,7 @@ public class NPCManager {
      */
     public void spawnEntity(AINpc npc) {
         if (npc.getSpawnLocation() == null) return;
+        if (!plugin.isEnabled()) return; // Don't spawn during shutdown
 
         Location loc = npc.getSpawnLocation();
         World world = loc.getWorld();
@@ -455,11 +456,19 @@ public class NPCManager {
         if (npc != null) {
             if (npc.getBukkitEntity() != null) {
                 entityToNpc.remove(npc.getBukkitEntity().getUniqueId());
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (npc.getBukkitEntity().isValid()) {
+                // Check if plugin is enabled before scheduling - prevents IllegalPluginAccessException during shutdown
+                if (plugin.isEnabled()) {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (npc.getBukkitEntity() != null && npc.getBukkitEntity().isValid()) {
+                            npc.getBukkitEntity().remove();
+                        }
+                    });
+                } else {
+                    // Plugin is disabled (server shutting down) - remove entity directly if on main thread
+                    if (Bukkit.isPrimaryThread() && npc.getBukkitEntity().isValid()) {
                         npc.getBukkitEntity().remove();
                     }
-                });
+                }
             }
             database.deleteNPC(uuid);
         }
@@ -489,8 +498,8 @@ public class NPCManager {
             }
         }
 
-        // Schedule respawn if enabled
-        if (plugin.getConfig().getBoolean("npcs.vulnerability.respawn", true)) {
+        // Schedule respawn if enabled (only if plugin is still active)
+        if (plugin.isEnabled() && plugin.getConfig().getBoolean("npcs.vulnerability.respawn", true)) {
             int delay = plugin.getConfig().getInt("npcs.vulnerability.respawn-delay", 300);
             Bukkit.getScheduler().runTaskLater(plugin, () -> respawnNPC(npc), delay * 20L);
         }
