@@ -43,6 +43,10 @@ public class NPCSettlementDefense {
     private int threatDetectionRange;
     private boolean wallBuildingEnabled;
 
+    // Batch processing to prevent lag
+    private int threatBatchIndex = 0;
+    private static final int THREAT_BATCH_SIZE = 3; // Process 3 settlements per tick
+
     public NPCSettlementDefense(AICompanions plugin, NPCManager npcManager, NPCHomeBuilder homeBuilder) {
         this.plugin = plugin;
         this.npcManager = npcManager;
@@ -64,8 +68,8 @@ public class NPCSettlementDefense {
         // Defense task - checks settlements and assigns guards
         defenseTask = Bukkit.getScheduler().runTaskTimer(plugin, this::processDefense, 200L, 600L);
 
-        // Threat detection - faster check for hostile mobs
-        threatDetectionTask = Bukkit.getScheduler().runTaskTimer(plugin, this::detectThreats, 40L, 40L);
+        // Threat detection - check for hostile mobs (batched, less frequent)
+        threatDetectionTask = Bukkit.getScheduler().runTaskTimer(plugin, this::detectThreats, 60L, 60L);
 
         plugin.getLogger().info("Settlement Defense System started");
     }
@@ -195,9 +199,21 @@ public class NPCSettlementDefense {
 
     /**
      * Detect and respond to threats near settlements
+     * Uses batch processing to prevent lag with many settlements
      */
     private void detectThreats() {
-        for (Settlement settlement : settlements.values()) {
+        List<Settlement> allSettlements = new ArrayList<>(settlements.values());
+        int totalSettlements = allSettlements.size();
+
+        if (totalSettlements == 0) return;
+
+        // Calculate batch bounds
+        int startIndex = threatBatchIndex;
+        int endIndex = Math.min(startIndex + THREAT_BATCH_SIZE, totalSettlements);
+
+        // Process this batch
+        for (int i = startIndex; i < endIndex; i++) {
+            Settlement settlement = allSettlements.get(i);
             Location center = settlement.getCenter();
             if (center == null || center.getWorld() == null) continue;
 
@@ -208,6 +224,9 @@ public class NPCSettlementDefense {
                 }
             }
         }
+
+        // Move to next batch (wrap around)
+        threatBatchIndex = endIndex >= totalSettlements ? 0 : endIndex;
     }
 
     /**

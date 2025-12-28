@@ -41,7 +41,9 @@ public class WanderingManager {
 
     // Batch processing to prevent lag
     private int combatBatchIndex = 0;
+    private int engagementBatchIndex = 0;
     private static final int COMBAT_BATCH_SIZE = 10; // Process 10 NPCs per tick
+    private static final int ENGAGEMENT_BATCH_SIZE = 15; // Process 15 NPCs per tick
 
     public WanderingManager(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
         this.plugin = plugin;
@@ -70,17 +72,29 @@ public class WanderingManager {
             combatTask = Bukkit.getScheduler().runTaskTimer(plugin, this::processCombat, 50L, 20L);
         }
 
-        // Engagement task - makes NPCs look at players they're talking to
-        Bukkit.getScheduler().runTaskTimer(plugin, this::processEngagements, 20L, 10L);
+        // Engagement task - makes NPCs look at players they're talking to (batched)
+        Bukkit.getScheduler().runTaskTimer(plugin, this::processEngagements, 20L, 20L);
 
         plugin.getLogger().info("Wandering manager started");
     }
 
     /**
      * Process NPC engagements - make engaged NPCs look at their conversation partner
+     * Uses batch processing to prevent lag with many NPCs
      */
     private void processEngagements() {
-        for (AINpc npc : npcManager.getAllNPCs()) {
+        java.util.List<AINpc> allNpcs = new java.util.ArrayList<>(npcManager.getAllNPCs());
+        int totalNpcs = allNpcs.size();
+
+        if (totalNpcs == 0) return;
+
+        // Calculate batch bounds
+        int startIndex = engagementBatchIndex;
+        int endIndex = Math.min(startIndex + ENGAGEMENT_BATCH_SIZE, totalNpcs);
+
+        // Process this batch
+        for (int i = startIndex; i < endIndex; i++) {
+            AINpc npc = allNpcs.get(i);
             if (!npc.isAlive() || !npc.isSpawned() || !npc.isEngaged()) continue;
 
             UUID playerUuid = npc.getEngagedWithPlayer();
@@ -97,7 +111,8 @@ public class WanderingManager {
             Location playerLoc = player.getLocation();
             double maxDistance = plugin.getConfig().getDouble("npcs.interaction-distance", 10);
 
-            if (npcLoc.getWorld().equals(playerLoc.getWorld()) &&
+            if (npcLoc != null && npcLoc.getWorld() != null &&
+                npcLoc.getWorld().equals(playerLoc.getWorld()) &&
                 npcLoc.distance(playerLoc) > maxDistance) {
                 // Player walked away, disengage
                 npc.disengageFromPlayer();
@@ -107,7 +122,7 @@ public class WanderingManager {
 
             // Make NPC look at player
             Entity entity = npc.getBukkitEntity();
-            if (entity instanceof LivingEntity living) {
+            if (entity instanceof LivingEntity) {
                 // Calculate look direction
                 Location lookAt = playerLoc.clone();
                 lookAt.setY(lookAt.getY() + 1.5); // Look at player's head
@@ -125,6 +140,9 @@ public class WanderingManager {
                 mob.getPathfinder().stopPathfinding();
             }
         }
+
+        // Move to next batch (wrap around)
+        engagementBatchIndex = endIndex >= totalNpcs ? 0 : endIndex;
     }
 
     /**

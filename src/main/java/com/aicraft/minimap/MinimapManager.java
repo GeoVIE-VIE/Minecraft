@@ -47,8 +47,8 @@ public class MinimapManager {
      * Start the minimap system
      */
     public void start() {
-        // Update task - refreshes maps periodically
-        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllMaps, 20L, 10L);
+        // Update task - refreshes maps periodically (less frequent to reduce lag)
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllMaps, 20L, 20L);
 
         // Waypoint cleanup - removes temporary waypoints when players reach them
         waypointCleanupTask = Bukkit.getScheduler().runTaskTimer(plugin, this::cleanupWaypoints, 40L, 40L);
