@@ -65,6 +65,18 @@ npcs:
     # Attack cooldown in ticks
     attack-cooldown: 20
 
+  # Loot drop settings
+  loot:
+    # Enable loot drops from NPCs
+    enabled: true
+    # Base chance for any drop (0.0 - 1.0)
+    # Modified by faction, hostility, and looting enchantment
+    base-drop-chance: 0.4
+    # Drop experience when NPCs die
+    drop-experience: true
+    # Base experience amount (modified by faction/hostility)
+    base-experience: 5
+
   # NPC social interactions
   social:
     enabled: true

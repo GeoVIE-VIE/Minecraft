@@ -4,6 +4,7 @@ import com.aicraft.AICompanions;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.loot.NPCLootManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
@@ -15,6 +16,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.List;
 
 /**
  * Handles damage and death events for NPCs
@@ -24,11 +28,13 @@ public class NPCDamageListener implements Listener {
     private final AICompanions plugin;
     private final NPCManager npcManager;
     private final FactionManager factionManager;
+    private final NPCLootManager lootManager;
 
     public NPCDamageListener(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
         this.factionManager = factionManager;
+        this.lootManager = new NPCLootManager(plugin);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -95,13 +101,36 @@ public class NPCDamageListener implements Listener {
 
         // Determine killer
         Entity killer = null;
+        Player killerPlayer = null;
         if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent damageEvent) {
             killer = damageEvent.getDamager();
+            if (killer instanceof Player) {
+                killerPlayer = (Player) killer;
+            }
         }
 
-        // Clear drops (NPCs don't drop items by default)
+        // Clear default drops
         event.getDrops().clear();
-        event.setDroppedExp(0);
+
+        // Generate loot drops
+        if (plugin.getConfig().getBoolean("npcs.loot.enabled", true)) {
+            List<ItemStack> loot = lootManager.generateLoot(npc, killerPlayer);
+            event.getDrops().addAll(loot);
+
+            // Log drops for debug
+            if (!loot.isEmpty()) {
+                plugin.debug(npc.getName() + " dropped " + loot.size() + " item(s)");
+            }
+        }
+
+        // Calculate and set experience drop
+        if (plugin.getConfig().getBoolean("npcs.loot.drop-experience", true)) {
+            int baseExp = plugin.getConfig().getInt("npcs.loot.base-experience", 5);
+            int exp = calculateExperience(npc, baseExp);
+            event.setDroppedExp(exp);
+        } else {
+            event.setDroppedExp(0);
+        }
 
         // Handle NPC death
         npcManager.handleDeath(npc, killer);
@@ -155,5 +184,33 @@ public class NPCDamageListener implements Listener {
                 event.setCancelled(true);
             }
         }
+    }
+
+    /**
+     * Calculate experience drop based on NPC faction and hostility
+     */
+    private int calculateExperience(AINpc npc, int baseExp) {
+        double multiplier = 1.0;
+
+        // Hostile NPCs give more XP
+        if (npc.isHostile()) {
+            multiplier *= 2.0;
+        }
+
+        // Faction multipliers
+        String faction = npc.getFaction() != null ? npc.getFaction().toLowerCase() : "";
+        switch (faction) {
+            case "bandits" -> multiplier *= 1.5;   // Combat NPCs
+            case "cultists" -> multiplier *= 2.0;  // Dangerous enemies
+            case "guards" -> multiplier *= 1.3;    // Trained fighters
+            case "merchants" -> multiplier *= 0.5; // Non-combatants
+            case "villagers" -> multiplier *= 0.3; // Civilians
+            case "wanderers" -> multiplier *= 0.8; // Misc
+        }
+
+        // Add some randomness (80% - 120%)
+        multiplier *= 0.8 + (Math.random() * 0.4);
+
+        return Math.max(1, (int) (baseExp * multiplier));
     }
 }
