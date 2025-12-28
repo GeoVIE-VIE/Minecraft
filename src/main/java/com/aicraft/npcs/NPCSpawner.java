@@ -246,12 +246,14 @@ public class NPCSpawner implements Listener {
 
     /**
      * Count NPCs within the spawn radius of a player
+     * Uses getNPCsNearPlayers() for efficiency with large NPC counts
      */
     private int countNPCsNearPlayer(Player player) {
         int count = 0;
         Location playerLoc = player.getLocation();
 
-        for (AINpc npc : npcManager.getAllNPCs()) {
+        // Use the efficient nearby NPCs list instead of all NPCs
+        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
             if (!npc.isAlive()) continue;
 
             Location npcLoc = npc.getCurrentLocation();
@@ -315,8 +317,9 @@ public class NPCSpawner implements Listener {
         if (below.isLiquid()) return false;
 
         // Check NPC density in this area - don't spawn if too many NPCs nearby
+        // Use getNPCsNearPlayers() for efficiency with large NPC counts
         int nearbyNPCCount = 0;
-        for (AINpc npc : npcManager.getAllNPCs()) {
+        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
             Location npcLoc = npc.getCurrentLocation();
             if (npcLoc != null &&
                 npcLoc.getWorld().equals(loc.getWorld())) {
@@ -344,9 +347,19 @@ public class NPCSpawner implements Listener {
      * Spawn a random NPC at location with biome-aware faction selection
      */
     private void spawnRandomNPC(Location location) {
+        // Check capacity before spawning
+        if (npcManager.isAtCapacity()) {
+            plugin.debug("Cannot spawn NPC - at capacity");
+            return;
+        }
+
         String factionName = pickFactionForLocation(location);
 
         AINpc npc = npcManager.createRandomNPC(location, factionName);
+        if (npc == null) {
+            plugin.debug("Failed to spawn NPC - createRandomNPC returned null");
+            return;
+        }
 
         plugin.debug("Spawned: " + npc.getName() + " (" + factionName + ") at " +
                 location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ());

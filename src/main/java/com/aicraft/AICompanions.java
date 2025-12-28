@@ -234,6 +234,14 @@ public class AICompanions extends JavaPlugin {
             npcManager.refreshEntityMappings();
         }, 200L, 200L); // Every 10 seconds
 
+        // NPC cleanup task - removes NPCs far from all players to prevent memory issues
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            int cleaned = npcManager.cleanupDistantNPCs();
+            if (cleaned > 0) {
+                debug("Cleaned up " + cleaned + " distant NPCs");
+            }
+        }, 6000L, 6000L); // Every 5 minutes
+
         // Gossip task (NPCs share info about players)
         if (getConfig().getBoolean("memory.gossip-enabled", true)) {
             int gossipInterval = getConfig().getInt("memory.gossip-interval", 30) * 60 * 20;

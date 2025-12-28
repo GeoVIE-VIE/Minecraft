@@ -80,10 +80,11 @@ public class WanderingManager {
 
     /**
      * Process NPC engagements - make engaged NPCs look at their conversation partner
-     * Uses batch processing to prevent lag with many NPCs
+     * Uses distance-based filtering to only process NPCs near players
      */
     private void processEngagements() {
-        java.util.List<AINpc> allNpcs = new java.util.ArrayList<>(npcManager.getAllNPCs());
+        // Only process NPCs near players - dramatically reduces iterations
+        java.util.List<AINpc> allNpcs = npcManager.getNPCsNearPlayers();
         int totalNpcs = allNpcs.size();
 
         if (totalNpcs == 0) return;
@@ -160,10 +161,11 @@ public class WanderingManager {
     }
 
     /**
-     * Process wandering behavior for all NPCs
+     * Process wandering behavior for NPCs near players
      */
     private void processWandering() {
-        for (AINpc npc : npcManager.getAllNPCs()) {
+        // Only process NPCs near players - dramatically reduces iterations
+        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
             if (!npc.isAlive() || !npc.isSpawned() || !npc.canWander()) continue;
 
             // Don't wander if engaged in conversation - stay focused on player
@@ -182,14 +184,14 @@ public class WanderingManager {
 
     /**
      * Process combat detection and behavior
-     * Uses batch processing to prevent lag with many NPCs
+     * Uses distance-based filtering to only process NPCs near players
      */
     private void processCombat() {
         boolean damageFromMobs = plugin.getConfig().getBoolean("npcs.vulnerability.damage-from-mobs", true);
         boolean damageFromNpcs = plugin.getConfig().getBoolean("npcs.vulnerability.damage-from-npcs", true);
 
-        // Get all NPCs and process only a batch per tick to reduce lag
-        java.util.List<AINpc> allNpcs = new java.util.ArrayList<>(npcManager.getAllNPCs());
+        // Only process NPCs near players - dramatically reduces iterations
+        java.util.List<AINpc> allNpcs = npcManager.getNPCsNearPlayers();
         int totalNpcs = allNpcs.size();
 
         if (totalNpcs == 0) return;

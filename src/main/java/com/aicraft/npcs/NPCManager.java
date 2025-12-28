@@ -30,6 +30,11 @@ public class NPCManager {
     private final Map<UUID, AINpc> npcs = new ConcurrentHashMap<>();
     private final Map<UUID, AINpc> entityToNpc = new ConcurrentHashMap<>(); // Bukkit entity UUID -> NPC
 
+    // Hard cap on total NPCs to prevent server crashes
+    private static final int MAX_TOTAL_NPCS = 500;
+    // Distance beyond which NPCs are considered "far" and can be culled
+    private static final double MAX_NPC_DISTANCE_FROM_PLAYERS = 256.0;
+
     // Personality options for random generation
     private static final String[] PERSONALITIES = {
             "Friendly and helpful, always eager to assist travelers",
@@ -98,10 +103,18 @@ public class NPCManager {
     }
 
     /**
-     * Load all NPCs from the database
+     * Load all NPCs from the database (with cap enforcement)
      */
     public void loadNPCs() {
         List<AINpc> loadedNpcs = database.loadAllNPCs();
+        int totalInDatabase = loadedNpcs.size();
+
+        // Enforce hard cap - only load up to MAX_TOTAL_NPCS
+        if (loadedNpcs.size() > MAX_TOTAL_NPCS) {
+            plugin.getLogger().warning("Database contains " + totalInDatabase + " NPCs, but cap is " + MAX_TOTAL_NPCS + ". Loading only " + MAX_TOTAL_NPCS + " NPCs.");
+            loadedNpcs = loadedNpcs.subList(0, MAX_TOTAL_NPCS);
+        }
+
         for (AINpc npc : loadedNpcs) {
             npcs.put(npc.getUuid(), npc);
             // Spawn the entity if they were alive
@@ -109,7 +122,8 @@ public class NPCManager {
                 spawnEntity(npc);
             }
         }
-        plugin.getLogger().info("Loaded " + npcs.size() + " NPCs from database");
+        plugin.getLogger().info("Loaded " + npcs.size() + " NPCs from database" +
+            (totalInDatabase > MAX_TOTAL_NPCS ? " (capped from " + totalInDatabase + ")" : ""));
     }
 
     /**
@@ -123,9 +137,29 @@ public class NPCManager {
     }
 
     /**
+     * Check if we're at NPC capacity
+     */
+    public boolean isAtCapacity() {
+        return npcs.size() >= MAX_TOTAL_NPCS;
+    }
+
+    /**
+     * Get the maximum NPC capacity
+     */
+    public int getMaxCapacity() {
+        return MAX_TOTAL_NPCS;
+    }
+
+    /**
      * Create a new NPC with AI-generated backstory
      */
     public AINpc createNPC(String name, String factionName, Location location) {
+        // Enforce hard cap
+        if (isAtCapacity()) {
+            plugin.getLogger().warning("Cannot create NPC - at capacity (" + MAX_TOTAL_NPCS + " NPCs)");
+            return null;
+        }
+
         UUID uuid = UUID.randomUUID();
         AINpc npc = new AINpc(uuid, name);
 
@@ -300,6 +334,12 @@ public class NPCManager {
      * Create a random NPC with dialect-appropriate name
      */
     public AINpc createRandomNPC(Location location, String factionName) {
+        // Enforce hard cap
+        if (isAtCapacity()) {
+            plugin.debug("Cannot create random NPC - at capacity (" + MAX_TOTAL_NPCS + " NPCs)");
+            return null;
+        }
+
         // Determine dialect first so we can pick appropriate name
         Dialect dialect = Dialect.getForFaction(factionName);
         String name = generateNameForDialect(dialect);
@@ -719,5 +759,137 @@ public class NPCManager {
      */
     public boolean isNPC(Entity entity) {
         return getNPCFromEntity(entity) != null;
+    }
+
+    /**
+     * Get NPCs near any online player (for efficient processing)
+     * Only returns NPCs within MAX_NPC_DISTANCE_FROM_PLAYERS of any player
+     */
+    public List<AINpc> getNPCsNearPlayers() {
+        List<AINpc> nearbyNpcs = new ArrayList<>();
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+
+        if (onlinePlayers.isEmpty()) {
+            return nearbyNpcs;
+        }
+
+        for (AINpc npc : npcs.values()) {
+            if (!npc.isAlive()) continue;
+
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null || npcLoc.getWorld() == null) continue;
+
+            // Check if NPC is near any player
+            for (Player player : onlinePlayers) {
+                if (!player.getWorld().equals(npcLoc.getWorld())) continue;
+
+                double distance = player.getLocation().distance(npcLoc);
+                if (distance <= MAX_NPC_DISTANCE_FROM_PLAYERS) {
+                    nearbyNpcs.add(npc);
+                    break; // No need to check other players
+                }
+            }
+        }
+
+        return nearbyNpcs;
+    }
+
+    /**
+     * Cleanup NPCs that are far from all players
+     * Call this periodically to keep NPC count manageable
+     */
+    public int cleanupDistantNPCs() {
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+
+        if (onlinePlayers.isEmpty()) {
+            return 0; // Don't cleanup when no players online
+        }
+
+        List<UUID> toRemove = new ArrayList<>();
+
+        for (AINpc npc : npcs.values()) {
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null || npcLoc.getWorld() == null) {
+                // NPC has no valid location - mark for removal
+                toRemove.add(npc.getUuid());
+                continue;
+            }
+
+            // Check if NPC is far from ALL players
+            boolean nearAnyPlayer = false;
+            for (Player player : onlinePlayers) {
+                if (!player.getWorld().equals(npcLoc.getWorld())) continue;
+
+                double distance = player.getLocation().distance(npcLoc);
+                if (distance <= MAX_NPC_DISTANCE_FROM_PLAYERS * 2) { // Use 2x distance for cleanup threshold
+                    nearAnyPlayer = true;
+                    break;
+                }
+            }
+
+            if (!nearAnyPlayer) {
+                toRemove.add(npc.getUuid());
+            }
+        }
+
+        // Remove distant NPCs
+        for (UUID uuid : toRemove) {
+            removeNPC(uuid);
+        }
+
+        if (!toRemove.isEmpty()) {
+            plugin.getLogger().info("Cleaned up " + toRemove.size() + " distant NPCs. Remaining: " + npcs.size());
+        }
+
+        return toRemove.size();
+    }
+
+    /**
+     * Force reduce NPC count to target (emergency cleanup)
+     */
+    public int forceReduceNPCCount(int targetCount) {
+        if (npcs.size() <= targetCount) {
+            return 0;
+        }
+
+        int toRemoveCount = npcs.size() - targetCount;
+        List<UUID> toRemove = new ArrayList<>();
+
+        // Remove NPCs that are furthest from any player first
+        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
+        List<Map.Entry<UUID, Double>> npcDistances = new ArrayList<>();
+
+        for (AINpc npc : npcs.values()) {
+            Location npcLoc = npc.getCurrentLocation();
+            double minDistance = Double.MAX_VALUE;
+
+            if (npcLoc != null && npcLoc.getWorld() != null) {
+                for (Player player : onlinePlayers) {
+                    if (player.getWorld().equals(npcLoc.getWorld())) {
+                        double dist = player.getLocation().distance(npcLoc);
+                        if (dist < minDistance) {
+                            minDistance = dist;
+                        }
+                    }
+                }
+            }
+
+            npcDistances.add(new AbstractMap.SimpleEntry<>(npc.getUuid(), minDistance));
+        }
+
+        // Sort by distance descending (furthest first)
+        npcDistances.sort((a, b) -> Double.compare(b.getValue(), a.getValue()));
+
+        // Remove the furthest NPCs
+        for (int i = 0; i < toRemoveCount && i < npcDistances.size(); i++) {
+            toRemove.add(npcDistances.get(i).getKey());
+        }
+
+        for (UUID uuid : toRemove) {
+            removeNPC(uuid);
+        }
+
+        plugin.getLogger().warning("Force-removed " + toRemove.size() + " NPCs to reach target count " + targetCount);
+        return toRemove.size();
     }
 }

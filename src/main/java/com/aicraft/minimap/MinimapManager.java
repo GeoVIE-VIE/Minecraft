@@ -294,7 +294,8 @@ public class MinimapManager {
         Location playerLoc = player.getLocation();
         if (playerLoc == null || playerLoc.getWorld() == null) return locations;
 
-        for (AINpc npc : npcManager.getAllNPCs()) {
+        // Use getNPCsNearPlayers() for efficiency with large NPC counts
+        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
             if (npc == null) continue;
             if (!npc.isAlive()) continue;
 
