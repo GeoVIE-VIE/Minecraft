@@ -2,8 +2,11 @@ package com.aicraft.npcs.loot;
 
 import com.aicraft.AICompanions;
 import com.aicraft.npcs.AINpc;
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -40,9 +43,51 @@ public class NPCLootManager {
         "of the Depths", "of Whispers", "of the Covenant", "of Geodjian"
     };
 
+    // Cached enchantments (1.21+ uses Registry)
+    private Enchantment enchLooting;
+    private Enchantment enchSharpness;
+    private Enchantment enchFireAspect;
+    private Enchantment enchKnockback;
+    private Enchantment enchPower;
+    private Enchantment enchPunch;
+    private Enchantment enchFlame;
+    private Enchantment enchInfinity;
+    private Enchantment enchProtection;
+    private Enchantment enchUnbreaking;
+    private Enchantment enchThorns;
+    private Enchantment enchFeatherFalling;
+    private Enchantment enchEfficiency;
+    private Enchantment enchFortune;
+
     public NPCLootManager(AICompanions plugin) {
         this.plugin = plugin;
+        initializeEnchantments();
         initializeLootTables();
+    }
+
+    /**
+     * Initialize enchantment references for 1.21+ API
+     */
+    private void initializeEnchantments() {
+        try {
+            var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT);
+            enchLooting = registry.get(NamespacedKey.minecraft("looting"));
+            enchSharpness = registry.get(NamespacedKey.minecraft("sharpness"));
+            enchFireAspect = registry.get(NamespacedKey.minecraft("fire_aspect"));
+            enchKnockback = registry.get(NamespacedKey.minecraft("knockback"));
+            enchPower = registry.get(NamespacedKey.minecraft("power"));
+            enchPunch = registry.get(NamespacedKey.minecraft("punch"));
+            enchFlame = registry.get(NamespacedKey.minecraft("flame"));
+            enchInfinity = registry.get(NamespacedKey.minecraft("infinity"));
+            enchProtection = registry.get(NamespacedKey.minecraft("protection"));
+            enchUnbreaking = registry.get(NamespacedKey.minecraft("unbreaking"));
+            enchThorns = registry.get(NamespacedKey.minecraft("thorns"));
+            enchFeatherFalling = registry.get(NamespacedKey.minecraft("feather_falling"));
+            enchEfficiency = registry.get(NamespacedKey.minecraft("efficiency"));
+            enchFortune = registry.get(NamespacedKey.minecraft("fortune"));
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to initialize enchantments: " + e.getMessage());
+        }
     }
 
     /**
@@ -52,12 +97,12 @@ public class NPCLootManager {
         List<ItemStack> drops = new ArrayList<>();
 
         // Check if loot is enabled
-        if (!plugin.getConfig().getBoolean("loot.enabled", true)) {
+        if (!plugin.getConfig().getBoolean("npcs.loot.enabled", true)) {
             return drops;
         }
 
         // Base drop chance from config
-        double baseDropChance = plugin.getConfig().getDouble("loot.base-drop-chance", 0.4);
+        double baseDropChance = plugin.getConfig().getDouble("npcs.loot.base-drop-chance", 0.4);
 
         // Calculate final drop chance with modifiers
         double dropChance = calculateDropChance(npc, killer, baseDropChance);
@@ -129,9 +174,8 @@ public class NPCLootManager {
         }
 
         // Looting enchantment bonus
-        if (killer != null && killer.getInventory().getItemInMainHand() != null) {
-            int lootingLevel = killer.getInventory().getItemInMainHand()
-                .getEnchantmentLevel(Enchantment.LOOTING);
+        if (killer != null && killer.getInventory().getItemInMainHand() != null && enchLooting != null) {
+            int lootingLevel = killer.getInventory().getItemInMainHand().getEnchantmentLevel(enchLooting);
             chance += lootingLevel * 0.1; // +10% per looting level
         }
 
@@ -293,22 +337,28 @@ public class NPCLootManager {
         List<Enchantment> applicable = new ArrayList<>();
 
         if (mat.name().contains("SWORD")) {
-            applicable.addAll(Arrays.asList(Enchantment.SHARPNESS, Enchantment.FIRE_ASPECT,
-                Enchantment.LOOTING, Enchantment.KNOCKBACK));
+            if (enchSharpness != null) applicable.add(enchSharpness);
+            if (enchFireAspect != null) applicable.add(enchFireAspect);
+            if (enchLooting != null) applicable.add(enchLooting);
+            if (enchKnockback != null) applicable.add(enchKnockback);
         } else if (mat.name().contains("BOW")) {
-            applicable.addAll(Arrays.asList(Enchantment.POWER, Enchantment.PUNCH,
-                Enchantment.FLAME, Enchantment.INFINITY));
+            if (enchPower != null) applicable.add(enchPower);
+            if (enchPunch != null) applicable.add(enchPunch);
+            if (enchFlame != null) applicable.add(enchFlame);
+            if (enchInfinity != null) applicable.add(enchInfinity);
         } else if (mat.name().contains("HELMET") || mat.name().contains("CHESTPLATE") ||
                    mat.name().contains("LEGGINGS") || mat.name().contains("BOOTS")) {
-            applicable.addAll(Arrays.asList(Enchantment.PROTECTION, Enchantment.UNBREAKING,
-                Enchantment.THORNS));
-            if (mat.name().contains("BOOTS")) {
-                applicable.add(Enchantment.FEATHER_FALLING);
+            if (enchProtection != null) applicable.add(enchProtection);
+            if (enchUnbreaking != null) applicable.add(enchUnbreaking);
+            if (enchThorns != null) applicable.add(enchThorns);
+            if (mat.name().contains("BOOTS") && enchFeatherFalling != null) {
+                applicable.add(enchFeatherFalling);
             }
         } else if (mat.name().contains("PICKAXE") || mat.name().contains("AXE") ||
                    mat.name().contains("SHOVEL")) {
-            applicable.addAll(Arrays.asList(Enchantment.EFFICIENCY, Enchantment.UNBREAKING,
-                Enchantment.FORTUNE));
+            if (enchEfficiency != null) applicable.add(enchEfficiency);
+            if (enchUnbreaking != null) applicable.add(enchUnbreaking);
+            if (enchFortune != null) applicable.add(enchFortune);
         }
 
         if (applicable.isEmpty()) return;
