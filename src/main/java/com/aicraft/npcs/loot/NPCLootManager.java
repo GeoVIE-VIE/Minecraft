@@ -2,11 +2,10 @@ package com.aicraft.npcs.loot;
 
 import com.aicraft.AICompanions;
 import com.aicraft.npcs.AINpc;
-import io.papermc.paper.registry.RegistryAccess;
-import io.papermc.paper.registry.RegistryKey;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -70,21 +69,20 @@ public class NPCLootManager {
      */
     private void initializeEnchantments() {
         try {
-            var registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.ENCHANTMENT);
-            enchLooting = registry.get(NamespacedKey.minecraft("looting"));
-            enchSharpness = registry.get(NamespacedKey.minecraft("sharpness"));
-            enchFireAspect = registry.get(NamespacedKey.minecraft("fire_aspect"));
-            enchKnockback = registry.get(NamespacedKey.minecraft("knockback"));
-            enchPower = registry.get(NamespacedKey.minecraft("power"));
-            enchPunch = registry.get(NamespacedKey.minecraft("punch"));
-            enchFlame = registry.get(NamespacedKey.minecraft("flame"));
-            enchInfinity = registry.get(NamespacedKey.minecraft("infinity"));
-            enchProtection = registry.get(NamespacedKey.minecraft("protection"));
-            enchUnbreaking = registry.get(NamespacedKey.minecraft("unbreaking"));
-            enchThorns = registry.get(NamespacedKey.minecraft("thorns"));
-            enchFeatherFalling = registry.get(NamespacedKey.minecraft("feather_falling"));
-            enchEfficiency = registry.get(NamespacedKey.minecraft("efficiency"));
-            enchFortune = registry.get(NamespacedKey.minecraft("fortune"));
+            enchLooting = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("looting"));
+            enchSharpness = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("sharpness"));
+            enchFireAspect = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("fire_aspect"));
+            enchKnockback = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("knockback"));
+            enchPower = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("power"));
+            enchPunch = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("punch"));
+            enchFlame = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("flame"));
+            enchInfinity = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("infinity"));
+            enchProtection = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("protection"));
+            enchUnbreaking = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("unbreaking"));
+            enchThorns = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("thorns"));
+            enchFeatherFalling = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("feather_falling"));
+            enchEfficiency = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("efficiency"));
+            enchFortune = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("fortune"));
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to initialize enchantments: " + e.getMessage());
         }
