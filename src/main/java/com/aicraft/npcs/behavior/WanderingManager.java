@@ -39,6 +39,10 @@ public class WanderingManager {
     private double wanderChance;
     private int detectionRange;
 
+    // Batch processing to prevent lag
+    private int combatBatchIndex = 0;
+    private static final int COMBAT_BATCH_SIZE = 10; // Process 10 NPCs per tick
+
     public WanderingManager(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
@@ -160,51 +164,72 @@ public class WanderingManager {
 
     /**
      * Process combat detection and behavior
+     * Uses batch processing to prevent lag with many NPCs
      */
     private void processCombat() {
         boolean damageFromMobs = plugin.getConfig().getBoolean("npcs.vulnerability.damage-from-mobs", true);
         boolean damageFromNpcs = plugin.getConfig().getBoolean("npcs.vulnerability.damage-from-npcs", true);
 
-        for (AINpc npc : npcManager.getAllNPCs()) {
-            if (!npc.isAlive() || !npc.isSpawned()) continue;
+        // Get all NPCs and process only a batch per tick to reduce lag
+        java.util.List<AINpc> allNpcs = new java.util.ArrayList<>(npcManager.getAllNPCs());
+        int totalNpcs = allNpcs.size();
 
-            Entity entity = npc.getBukkitEntity();
-            if (entity == null || !entity.isValid()) continue;
+        if (totalNpcs == 0) return;
 
-            Location npcLoc = entity.getLocation();
+        // Calculate batch bounds
+        int startIndex = combatBatchIndex;
+        int endIndex = Math.min(startIndex + COMBAT_BATCH_SIZE, totalNpcs);
 
-            // Check for nearby threats
-            for (Entity nearby : entity.getNearbyEntities(detectionRange, detectionRange, detectionRange)) {
-                // Skip non-living entities
-                if (!(nearby instanceof LivingEntity)) continue;
+        // Process this batch
+        for (int i = startIndex; i < endIndex; i++) {
+            AINpc npc = allNpcs.get(i);
+            processSingleNPCCombat(npc, damageFromMobs, damageFromNpcs);
+        }
 
-                // Check for hostile mobs
-                if (damageFromMobs && nearby instanceof Monster monster) {
-                    // Mobs might target the NPC
-                    if (monster.getTarget() == null && random.nextDouble() < 0.1) {
-                        if (entity instanceof LivingEntity livingNpc) {
-                            monster.setTarget(livingNpc);
-                        }
-                    }
-                }
+        // Move to next batch (wrap around)
+        combatBatchIndex = endIndex >= totalNpcs ? 0 : endIndex;
+    }
 
-                // Check for hostile NPCs from other factions
-                if (damageFromNpcs) {
-                    AINpc otherNpc = npcManager.getNPCFromEntity(nearby);
-                    if (otherNpc != null && otherNpc.isAlive() && otherNpc.isHostile()) {
-                        // Check if factions are hostile
-                        if (factionManager.areHostile(npc.getFaction(), otherNpc.getFaction())) {
-                            // Hostile NPC detected - engage or flee based on personality
-                            handleNPCConflict(npc, otherNpc);
-                        }
+    /**
+     * Process combat for a single NPC
+     */
+    private void processSingleNPCCombat(AINpc npc, boolean damageFromMobs, boolean damageFromNpcs) {
+        if (!npc.isAlive() || !npc.isSpawned()) return;
+
+        Entity entity = npc.getBukkitEntity();
+        if (entity == null || !entity.isValid()) return;
+
+        // Check for nearby threats
+        for (Entity nearby : entity.getNearbyEntities(detectionRange, detectionRange, detectionRange)) {
+            // Skip non-living entities
+            if (!(nearby instanceof LivingEntity)) continue;
+
+            // Check for hostile mobs
+            if (damageFromMobs && nearby instanceof Monster monster) {
+                // Mobs might target the NPC
+                if (monster.getTarget() == null && random.nextDouble() < 0.1) {
+                    if (entity instanceof LivingEntity livingNpc) {
+                        monster.setTarget(livingNpc);
                     }
                 }
             }
 
-            // Hostile NPCs look for targets
-            if (npc.isHostile()) {
-                findAndEngageTarget(npc);
+            // Check for hostile NPCs from other factions
+            if (damageFromNpcs) {
+                AINpc otherNpc = npcManager.getNPCFromEntity(nearby);
+                if (otherNpc != null && otherNpc.isAlive() && otherNpc.isHostile()) {
+                    // Check if factions are hostile
+                    if (factionManager.areHostile(npc.getFaction(), otherNpc.getFaction())) {
+                        // Hostile NPC detected - engage or flee based on personality
+                        handleNPCConflict(npc, otherNpc);
+                    }
+                }
             }
+        }
+
+        // Hostile NPCs look for targets
+        if (npc.isHostile()) {
+            findAndEngageTarget(npc);
         }
     }
 
