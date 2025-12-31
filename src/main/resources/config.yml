@@ -76,6 +76,11 @@ npcs:
     drop-experience: true
     # Base experience amount (modified by faction/hostility)
     base-experience: 5
+    # Enable custom loot drops from vanilla monsters (zombies, skeletons, etc.)
+    mob-loot-enabled: true
+    # Base drop chance for monster loot (0.0 - 1.0)
+    # Looting enchantment adds +5% per level
+    mob-drop-chance: 0.15
 
   # NPC social interactions
   social:
