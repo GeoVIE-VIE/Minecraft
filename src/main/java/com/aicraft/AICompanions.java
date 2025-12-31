@@ -6,6 +6,7 @@ import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.gui.QuestTrackerGUI;
 import com.aicraft.listeners.ChatListener;
+import com.aicraft.listeners.MobLootListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
 import com.aicraft.listeners.QuestProgressListener;
@@ -212,6 +213,7 @@ public class AICompanions extends JavaPlugin {
         getServer().getPluginManager().registerEvents(chatListener, this);
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
         getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
+        getServer().getPluginManager().registerEvents(new MobLootListener(this), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
     }
 
