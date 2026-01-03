@@ -316,28 +316,19 @@ public class NPCSpawner implements Listener {
         // Don't spawn in liquids
         if (below.isLiquid()) return false;
 
-        // Check NPC density in this area - don't spawn if too many NPCs nearby
-        // Use getNPCsNearPlayers() for efficiency with large NPC counts
-        int nearbyNPCCount = 0;
-        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
-            Location npcLoc = npc.getCurrentLocation();
-            if (npcLoc != null &&
-                npcLoc.getWorld().equals(loc.getWorld())) {
-                double distance = npcLoc.distance(loc);
-                // Don't spawn within 10 blocks of another NPC
-                if (distance < 10) {
-                    return false;
-                }
-                // Count NPCs within 50 blocks
-                if (distance < 50) {
-                    nearbyNPCCount++;
-                }
-            }
+        // STRICT density check - use NPCManager's overcrowding detection
+        if (npcManager.isLocationOvercrowded(loc)) {
+            return false;
         }
 
-        // Don't spawn if already 5+ NPCs within 50 blocks of this location
-        if (nearbyNPCCount >= 5) {
-            return false;
+        // Additional check - don't spawn within 15 blocks of another NPC
+        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc != null && npcLoc.getWorld().equals(loc.getWorld())) {
+                if (npcLoc.distance(loc) < 15) {
+                    return false;
+                }
+            }
         }
 
         return true;

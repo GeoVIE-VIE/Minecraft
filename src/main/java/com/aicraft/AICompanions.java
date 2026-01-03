@@ -6,6 +6,7 @@ import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.gui.QuestTrackerGUI;
 import com.aicraft.listeners.ChatListener;
+import com.aicraft.listeners.LootEffectsListener;
 import com.aicraft.listeners.MobLootListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
@@ -214,6 +215,7 @@ public class AICompanions extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
         getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
         getServer().getPluginManager().registerEvents(new MobLootListener(this), this);
+        getServer().getPluginManager().registerEvents(new LootEffectsListener(this), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
     }
 
@@ -243,6 +245,14 @@ public class AICompanions extends JavaPlugin {
                 debug("Cleaned up " + cleaned + " distant NPCs");
             }
         }, 6000L, 6000L); // Every 5 minutes
+
+        // NPC overcrowding cull task - removes excess NPCs in crowded areas
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            int culled = npcManager.cullOvercrowdedAreas();
+            if (culled > 0) {
+                debug("Culled " + culled + " NPCs from overcrowded areas");
+            }
+        }, 600L, 600L); // Every 30 seconds
 
         // Gossip task (NPCs share info about players)
         if (getConfig().getBoolean("memory.gossip-enabled", true)) {

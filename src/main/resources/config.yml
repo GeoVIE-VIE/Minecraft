@@ -189,12 +189,13 @@ spawning:
   enabled: true
 
   # How many NPCs can exist per world (total)
-  max-npcs-per-world: 30
+  # Hard cap is 100 NPCs globally to prevent lag
+  max-npcs-per-world: 25
 
   # How many NPCs should be near each player (within render distance)
   # Lower values = more sparse, natural feel
-  # Note: Max 5 NPCs within 50 blocks of any location (hard limit)
-  npcs-per-area: 5
+  # Note: Max 8 NPCs within 32 blocks of any location (hard density limit)
+  npcs-per-area: 4
 
   # Spawn interval range (random between min and max for sporadic feel)
   min-interval-seconds: 60

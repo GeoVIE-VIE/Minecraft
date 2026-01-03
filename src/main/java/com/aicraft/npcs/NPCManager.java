@@ -31,9 +31,12 @@ public class NPCManager {
     private final Map<UUID, AINpc> entityToNpc = new ConcurrentHashMap<>(); // Bukkit entity UUID -> NPC
 
     // Hard cap on total NPCs to prevent server crashes
-    private static final int MAX_TOTAL_NPCS = 500;
+    private static final int MAX_TOTAL_NPCS = 100;
     // Distance beyond which NPCs are considered "far" and can be culled
-    private static final double MAX_NPC_DISTANCE_FROM_PLAYERS = 256.0;
+    private static final double MAX_NPC_DISTANCE_FROM_PLAYERS = 200.0;
+    // Maximum NPCs allowed in a small radius (strict density cap)
+    private static final int MAX_NPCS_PER_CHUNK_AREA = 8;
+    private static final double CHUNK_AREA_RADIUS = 32.0;
 
     // Personality options for random generation
     private static final String[] PERSONALITIES = {
@@ -839,6 +842,85 @@ public class NPCManager {
 
         if (!toRemove.isEmpty()) {
             plugin.getLogger().info("Cleaned up " + toRemove.size() + " distant NPCs. Remaining: " + npcs.size());
+        }
+
+        return toRemove.size();
+    }
+
+    /**
+     * Check if a location already has too many NPCs nearby (density cap)
+     */
+    public boolean isLocationOvercrowded(Location location) {
+        if (location == null || location.getWorld() == null) return true;
+        return countNPCsInRadius(location, CHUNK_AREA_RADIUS) >= MAX_NPCS_PER_CHUNK_AREA;
+    }
+
+    /**
+     * Count NPCs within a radius of a location
+     */
+    public int countNPCsInRadius(Location location, double radius) {
+        if (location == null || location.getWorld() == null) return 0;
+
+        int count = 0;
+        for (AINpc npc : npcs.values()) {
+            if (!npc.isAlive()) continue;
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null || !npcLoc.getWorld().equals(location.getWorld())) continue;
+            if (npcLoc.distance(location) <= radius) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
+     * Cull excess NPCs in overcrowded areas around players
+     * Returns number of NPCs removed
+     */
+    public int cullOvercrowdedAreas() {
+        Collection<? extends Player> players = Bukkit.getOnlinePlayers();
+        if (players.isEmpty()) return 0;
+
+        Set<UUID> toRemove = new HashSet<>();
+
+        for (Player player : players) {
+            Location playerLoc = player.getLocation();
+            List<AINpc> nearbyNpcs = new ArrayList<>();
+
+            // Find all NPCs near this player
+            for (AINpc npc : npcs.values()) {
+                if (!npc.isAlive()) continue;
+                Location npcLoc = npc.getCurrentLocation();
+                if (npcLoc == null || !npcLoc.getWorld().equals(playerLoc.getWorld())) continue;
+                double dist = npcLoc.distance(playerLoc);
+                if (dist <= CHUNK_AREA_RADIUS) {
+                    nearbyNpcs.add(npc);
+                }
+            }
+
+            // If overcrowded, remove excess (keep closest ones)
+            if (nearbyNpcs.size() > MAX_NPCS_PER_CHUNK_AREA) {
+                // Sort by distance to player
+                nearbyNpcs.sort((a, b) -> {
+                    double distA = a.getCurrentLocation().distance(playerLoc);
+                    double distB = b.getCurrentLocation().distance(playerLoc);
+                    return Double.compare(distA, distB);
+                });
+
+                // Mark excess for removal (furthest ones)
+                for (int i = MAX_NPCS_PER_CHUNK_AREA; i < nearbyNpcs.size(); i++) {
+                    toRemove.add(nearbyNpcs.get(i).getUuid());
+                }
+            }
+        }
+
+        // Remove marked NPCs
+        for (UUID uuid : toRemove) {
+            removeNPC(uuid);
+        }
+
+        if (!toRemove.isEmpty()) {
+            plugin.getLogger().info("Culled " + toRemove.size() + " NPCs from overcrowded areas. Remaining: " + npcs.size());
         }
 
         return toRemove.size();
