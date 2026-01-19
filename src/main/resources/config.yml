@@ -93,6 +93,16 @@ npcs:
     # When true: Each building is procedurally generated with random floor plans, roofs, and rooms
     # When false: Uses template-based designs (consistent but may repeat)
     procedural: true
+    # Maximum total homes that can be built (server-wide)
+    max-total-homes: 8
+    # Maximum homes allowed within home-area-radius blocks
+    max-homes-per-area: 4
+    # Radius for area home limit check
+    home-area-radius: 150
+    # Minimum distance between homes (prevents clustering)
+    min-home-spacing: 40
+    # Building chance per cycle (0.0-1.0) - lower = less frequent building
+    build-chance: 0.02
 
   # NPC television system
   television:
@@ -188,40 +198,51 @@ spawning:
   # Enable automatic NPC spawning
   enabled: true
 
-  # How many NPCs can exist per world (total)
-  max-npcs-per-world: 30
+  # How many NPCs can exist per world (total) - keep this LOW to prevent overcrowding
+  max-npcs-per-world: 12
 
   # How many NPCs should be near each player (within render distance)
   # Lower values = more sparse, natural feel
-  # Note: Max 5 NPCs within 50 blocks of any location (hard limit)
-  npcs-per-area: 5
+  npcs-per-area: 3
+
+  # Settlement density limits - prevents overcrowding in towns
+  # Max NPCs allowed within settlement-radius blocks of any settlement/home
+  max-npcs-near-settlement: 6
+  settlement-radius: 100
+
+  # Minimum distance between any two NPCs (prevents clustering)
+  min-npc-spacing: 25
+
+  # Max NPCs within local-density-radius blocks (hard limit at spawn location)
+  local-density-max: 3
+  local-density-radius: 75
 
   # Spawn interval range (random between min and max for sporadic feel)
-  min-interval-seconds: 60
-  max-interval-seconds: 240
+  min-interval-seconds: 120
+  max-interval-seconds: 360
 
   # Batch size range (random NPCs per spawn cycle)
   min-batch-size: 1
-  max-batch-size: 2
+  max-batch-size: 1
 
   # Chance to actually spawn when interval triggers (percent)
   # Lower = more sporadic, less predictable
-  spawn-chance-percent: 50
+  spawn-chance-percent: 30
 
   # Minimum distance from player to spawn
-  min-distance-from-player: 25
+  min-distance-from-player: 40
 
   # Maximum distance from player to spawn
-  max-distance-from-player: 80
+  max-distance-from-player: 100
 
   # Initial spawn on server start (random 0 to this number)
-  initial-spawn-count: 2
+  initial-spawn-count: 1
 
   # Distant travelers - NPCs that spawn far away and wander through
   travelers:
     enabled: true
     # Chance per spawn cycle to spawn a distant traveler (percent)
-    chance-percent: 25
+    chance-percent: 15
 
 # =============================================================================
 # World Settings

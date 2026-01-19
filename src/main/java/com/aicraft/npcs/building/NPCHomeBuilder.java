@@ -101,6 +101,13 @@ public class NPCHomeBuilder {
         this.npcManager = npcManager;
         this.proceduralGenerator = new ProceduralBuildingGenerator();
         this.useProceduralGeneration = plugin.getConfig().getBoolean("npcs.building.procedural", true);
+
+        // Load building limits from config
+        this.maxTotalHomes = plugin.getConfig().getInt("npcs.building.max-total-homes", 8);
+        this.maxHomesPerArea = plugin.getConfig().getInt("npcs.building.max-homes-per-area", 4);
+        this.homeAreaRadius = plugin.getConfig().getInt("npcs.building.home-area-radius", 150);
+        this.minHomeSpacing = plugin.getConfig().getInt("npcs.building.min-home-spacing", 40);
+        this.buildChance = plugin.getConfig().getDouble("npcs.building.build-chance", 0.02);
     }
 
     public void start() {
@@ -130,26 +137,71 @@ public class NPCHomeBuilder {
         }
     }
 
+    // Configurable building limits (loaded from config)
+    private int maxTotalHomes;
+    private int maxHomesPerArea;
+    private int homeAreaRadius;
+    private int minHomeSpacing;
+    private double buildChance;
+
     /**
      * Process building attempts for homeless NPCs
      */
     private void processBuildingAttempts() {
+        // Count total homes first - limit server-wide building
+        if (npcHomes.size() >= maxTotalHomes) {
+            plugin.debug("Max homes reached (" + npcHomes.size() + "/" + maxTotalHomes + "), skipping build cycle");
+            return;
+        }
+
         for (AINpc npc : npcManager.getAllNPCs()) {
             if (!npc.isAlive() || !npc.isSpawned()) continue;
             if (npcHomes.containsKey(npc.getUuid())) continue;
             if (npc.isHostile()) continue;
 
-            // 5% chance per cycle
-            if (random.nextDouble() > 0.05) continue;
+            // Configurable build chance (default 2%)
+            if (random.nextDouble() > buildChance) continue;
+
+            // Check if area already has too many homes before even finding a location
+            Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc != null && countHomesNearLocation(npcLoc) >= maxHomesPerArea) {
+                plugin.debug(npc.getName() + " skipped building - area already has " + maxHomesPerArea + " homes");
+                continue;
+            }
 
             Location loc = findBuildLocation(npc);
             if (loc != null) {
+                // Double-check the build location doesn't exceed area limit
+                if (countHomesNearLocation(loc) >= maxHomesPerArea) {
+                    plugin.debug("Build location rejected - too many homes in area");
+                    continue;
+                }
+
                 // Pick a random style and size appropriate for the faction
                 HouseStyle style = pickStyleForFaction(npc.getFaction());
                 HouseSize size = pickSizeForNPC(npc);
                 buildHome(npc, loc, style, size);
             }
         }
+    }
+
+    /**
+     * Count how many homes exist near a location
+     */
+    private int countHomesNearLocation(Location loc) {
+        if (loc == null || loc.getWorld() == null) return 0;
+
+        int count = 0;
+        for (NPCHome home : npcHomes.values()) {
+            Location homeLoc = home.getLocation();
+            if (homeLoc != null && homeLoc.getWorld() != null &&
+                homeLoc.getWorld().equals(loc.getWorld())) {
+                if (homeLoc.distance(loc) <= homeAreaRadius) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**
@@ -336,9 +388,10 @@ public class NPCHomeBuilder {
             }
         }
 
+        // Configurable minimum distance between homes to prevent tight clustering
         for (NPCHome home : npcHomes.values()) {
             if (home.getLocation().getWorld().equals(loc.getWorld()) &&
-                    home.getLocation().distance(loc) < 20) {
+                    home.getLocation().distance(loc) < minHomeSpacing) {
                 return false;
             }
         }
