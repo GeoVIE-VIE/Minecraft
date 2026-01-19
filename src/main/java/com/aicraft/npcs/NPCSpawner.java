@@ -46,6 +46,13 @@ public class NPCSpawner implements Listener {
     private boolean travelersEnabled;
     private int travelerChancePercent;
 
+    // New density control settings
+    private int maxNpcsNearSettlement;
+    private int settlementRadius;
+    private int minNpcSpacing;
+    private int localDensityMax;
+    private int localDensityRadius;
+
     public NPCSpawner(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
@@ -57,18 +64,25 @@ public class NPCSpawner implements Listener {
     }
 
     private void loadConfig() {
-        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 30);
-        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 5);
-        minSpawnInterval = plugin.getConfig().getInt("spawning.min-interval-seconds", 60);
-        maxSpawnInterval = plugin.getConfig().getInt("spawning.max-interval-seconds", 240);
+        maxNpcsPerWorld = plugin.getConfig().getInt("spawning.max-npcs-per-world", 12);
+        npcsPerArea = plugin.getConfig().getInt("spawning.npcs-per-area", 3);
+        minSpawnInterval = plugin.getConfig().getInt("spawning.min-interval-seconds", 120);
+        maxSpawnInterval = plugin.getConfig().getInt("spawning.max-interval-seconds", 360);
         minBatchSize = plugin.getConfig().getInt("spawning.min-batch-size", 1);
-        maxBatchSize = plugin.getConfig().getInt("spawning.max-batch-size", 2);
-        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 25);
-        maxPlayerDistance = plugin.getConfig().getInt("spawning.max-distance-from-player", 80);
-        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 2);
-        spawnChancePercent = plugin.getConfig().getInt("spawning.spawn-chance-percent", 50);
+        maxBatchSize = plugin.getConfig().getInt("spawning.max-batch-size", 1);
+        minPlayerDistance = plugin.getConfig().getInt("spawning.min-distance-from-player", 40);
+        maxPlayerDistance = plugin.getConfig().getInt("spawning.max-distance-from-player", 100);
+        initialSpawnCount = plugin.getConfig().getInt("spawning.initial-spawn-count", 1);
+        spawnChancePercent = plugin.getConfig().getInt("spawning.spawn-chance-percent", 30);
         travelersEnabled = plugin.getConfig().getBoolean("spawning.travelers.enabled", true);
-        travelerChancePercent = plugin.getConfig().getInt("spawning.travelers.chance-percent", 25);
+        travelerChancePercent = plugin.getConfig().getInt("spawning.travelers.chance-percent", 15);
+
+        // New density control settings
+        maxNpcsNearSettlement = plugin.getConfig().getInt("spawning.max-npcs-near-settlement", 6);
+        settlementRadius = plugin.getConfig().getInt("spawning.settlement-radius", 100);
+        minNpcSpacing = plugin.getConfig().getInt("spawning.min-npc-spacing", 25);
+        localDensityMax = plugin.getConfig().getInt("spawning.local-density-max", 3);
+        localDensityRadius = plugin.getConfig().getInt("spawning.local-density-radius", 75);
     }
 
     /**
@@ -298,6 +312,7 @@ public class NPCSpawner implements Listener {
 
     /**
      * Check if a location is valid for spawning
+     * Uses ALL NPCs in the world for density checking to prevent clustering
      */
     private boolean isValidSpawnLocation(Location loc) {
         if (loc == null || loc.getWorld() == null) return false;
@@ -316,27 +331,48 @@ public class NPCSpawner implements Listener {
         // Don't spawn in liquids
         if (below.isLiquid()) return false;
 
-        // Check NPC density in this area - don't spawn if too many NPCs nearby
-        // Use getNPCsNearPlayers() for efficiency with large NPC counts
-        int nearbyNPCCount = 0;
-        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
+        // IMPORTANT: Check ALL NPCs in the world, not just those near players
+        // This prevents clustering when players leave and return to areas
+        int localDensityCount = 0;
+        int settlementAreaCount = 0;
+
+        for (AINpc npc : npcManager.getNPCsInWorld(loc.getWorld())) {
+            if (!npc.isAlive()) continue;
+
             Location npcLoc = npc.getCurrentLocation();
-            if (npcLoc != null &&
-                npcLoc.getWorld().equals(loc.getWorld())) {
-                double distance = npcLoc.distance(loc);
-                // Don't spawn within 10 blocks of another NPC
-                if (distance < 10) {
-                    return false;
-                }
-                // Count NPCs within 50 blocks
-                if (distance < 50) {
-                    nearbyNPCCount++;
-                }
+            if (npcLoc == null) {
+                npcLoc = npc.getSpawnLocation();
+            }
+            if (npcLoc == null) continue;
+
+            double distance = npcLoc.distance(loc);
+
+            // Don't spawn within minNpcSpacing blocks of another NPC (prevents tight clustering)
+            if (distance < minNpcSpacing) {
+                plugin.debug("Spawn blocked: too close to " + npc.getName() + " (" + (int)distance + " blocks)");
+                return false;
+            }
+
+            // Count NPCs within local density radius
+            if (distance < localDensityRadius) {
+                localDensityCount++;
+            }
+
+            // Count NPCs within settlement radius (larger area check)
+            if (distance < settlementRadius) {
+                settlementAreaCount++;
             }
         }
 
-        // Don't spawn if already 5+ NPCs within 50 blocks of this location
-        if (nearbyNPCCount >= 5) {
+        // Don't spawn if local density exceeded
+        if (localDensityCount >= localDensityMax) {
+            plugin.debug("Spawn blocked: local density " + localDensityCount + "/" + localDensityMax + " at location");
+            return false;
+        }
+
+        // Don't spawn if settlement area is too crowded
+        if (settlementAreaCount >= maxNpcsNearSettlement) {
+            plugin.debug("Spawn blocked: settlement area has " + settlementAreaCount + "/" + maxNpcsNearSettlement + " NPCs");
             return false;
         }
 
