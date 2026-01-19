@@ -260,19 +260,23 @@ public class NPCSpawner implements Listener {
 
     /**
      * Count NPCs within the spawn radius of a player
-     * Uses getNPCsNearPlayers() for efficiency with large NPC counts
+     * FIXED: Now uses ALL NPCs in the world, not just getNPCsNearPlayers()
      */
     private int countNPCsNearPlayer(Player player) {
         int count = 0;
         Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+        if (world == null) return 0;
 
-        // Use the efficient nearby NPCs list instead of all NPCs
-        for (AINpc npc : npcManager.getNPCsNearPlayers()) {
+        // Use ALL NPCs in world - the old getNPCsNearPlayers() was missing NPCs
+        for (AINpc npc : npcManager.getNPCsInWorld(world)) {
             if (!npc.isAlive()) continue;
 
             Location npcLoc = npc.getCurrentLocation();
+            if (npcLoc == null) {
+                npcLoc = npc.getSpawnLocation();
+            }
             if (npcLoc == null) continue;
-            if (!npcLoc.getWorld().equals(playerLoc.getWorld())) continue;
 
             double distance = npcLoc.distance(playerLoc);
             if (distance <= maxPlayerDistance + 20) { // Slightly larger check radius
