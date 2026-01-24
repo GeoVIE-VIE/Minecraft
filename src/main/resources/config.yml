@@ -104,6 +104,17 @@ npcs:
     # Building chance per cycle (0.0-1.0) - lower = less frequent building
     build-chance: 0.02
 
+  # Boss NPC system - RGV 956 style legendary bosses
+  bosses:
+    # Enable boss spawning
+    enabled: true
+    # Maximum active bosses at once
+    max-active: 1
+    # Respawn delay after a boss is killed (minutes)
+    respawn-delay-minutes: 30
+    # Spawn chance per check per player (0.0 - 1.0)
+    spawn-chance: 0.05
+
   # NPC television system
   television:
     # Enable TVs in NPC homes

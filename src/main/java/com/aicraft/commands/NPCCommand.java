@@ -6,6 +6,9 @@ import com.aicraft.factions.Faction;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.boss.BossDefinition;
+import com.aicraft.npcs.boss.BossManager;
+import com.aicraft.npcs.boss.BossNpc;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.command.Command;
@@ -104,6 +107,7 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             case "setpersonality" -> handleSetPersonality(player, args);
             case "setfaction" -> handleSetFaction(player, args);
             case "regenerate" -> handleRegenerate(player, args);
+            case "boss" -> handleBoss(player, args);
             default -> showHelp(sender);
         }
 
@@ -128,6 +132,10 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/npc cleardead" + ChatColor.GRAY + " - Remove only dead NPCs");
         sender.sendMessage(ChatColor.YELLOW + "/npc respawnall" + ChatColor.GRAY + " - Respawn all NPCs");
         sender.sendMessage(ChatColor.YELLOW + "/npc killall" + ChatColor.GRAY + " - Kill all NPCs (they can respawn)");
+        sender.sendMessage(ChatColor.RED + "--- Boss Commands ---");
+        sender.sendMessage(ChatColor.YELLOW + "/npc boss list" + ChatColor.GRAY + " - List available bosses");
+        sender.sendMessage(ChatColor.YELLOW + "/npc boss spawn <id>" + ChatColor.GRAY + " - Spawn a boss");
+        sender.sendMessage(ChatColor.YELLOW + "/npc boss active" + ChatColor.GRAY + " - Show active bosses");
         sender.sendMessage(ChatColor.GOLD + "════════════════════════════════════");
     }
 
@@ -566,6 +574,71 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    private void handleBoss(Player player, String[] args) {
+        BossManager bossManager = plugin.getBossManager();
+        if (bossManager == null) {
+            player.sendMessage(ChatColor.RED + "Boss system is not enabled.");
+            return;
+        }
+
+        if (args.length < 2) {
+            // Show boss help
+            player.sendMessage(ChatColor.GOLD + "═══════ Boss Commands ═══════");
+            player.sendMessage(ChatColor.YELLOW + "/npc boss list" + ChatColor.GRAY + " - List available bosses");
+            player.sendMessage(ChatColor.YELLOW + "/npc boss spawn <id>" + ChatColor.GRAY + " - Spawn a boss");
+            player.sendMessage(ChatColor.YELLOW + "/npc boss active" + ChatColor.GRAY + " - Show active bosses");
+            player.sendMessage(ChatColor.GOLD + "═════════════════════════════");
+            return;
+        }
+
+        String action = args[1].toLowerCase();
+
+        switch (action) {
+            case "list" -> {
+                player.sendMessage(ChatColor.GOLD + "═══════ Available Bosses ═══════");
+                for (BossDefinition def : bossManager.getBossDefinitions()) {
+                    player.sendMessage(def.nameColor + "" + ChatColor.BOLD + def.name);
+                    player.sendMessage(ChatColor.GRAY + "  ID: " + ChatColor.WHITE + def.id);
+                    player.sendMessage(ChatColor.GRAY + "  Faction: " + ChatColor.WHITE + def.faction);
+                    player.sendMessage(ChatColor.GRAY + "  Health: " + ChatColor.RED + (int)def.health + " HP");
+                    player.sendMessage(ChatColor.GRAY + "  Drops: " + ChatColor.GOLD + String.join(", ", def.guaranteedDrops));
+                    player.sendMessage("");
+                }
+            }
+            case "spawn" -> {
+                if (args.length < 3) {
+                    player.sendMessage(ChatColor.RED + "Usage: /npc boss spawn <boss_id>");
+                    player.sendMessage(ChatColor.GRAY + "Available: " + bossManager.getBossDefinitions().stream()
+                        .map(d -> d.id).collect(java.util.stream.Collectors.joining(", ")));
+                    return;
+                }
+                String bossId = args[2];
+                BossNpc boss = bossManager.spawnBoss(bossId, player.getLocation().add(5, 0, 5));
+                if (boss != null) {
+                    player.sendMessage(ChatColor.GREEN + "Spawned boss: " + boss.getDefinition().name);
+                } else {
+                    player.sendMessage(ChatColor.RED + "Unknown boss ID: " + bossId);
+                    player.sendMessage(ChatColor.GRAY + "Available: " + bossManager.getBossDefinitions().stream()
+                        .map(d -> d.id).collect(java.util.stream.Collectors.joining(", ")));
+                }
+            }
+            case "active" -> {
+                var active = bossManager.getActiveBosses();
+                if (active.isEmpty()) {
+                    player.sendMessage(ChatColor.GRAY + "No active bosses.");
+                } else {
+                    player.sendMessage(ChatColor.GOLD + "Active Bosses:");
+                    for (BossNpc boss : active) {
+                        player.sendMessage(boss.getDefinition().nameColor + "  " + boss.getDefinition().name +
+                            ChatColor.GRAY + " - HP: " + ChatColor.RED + (int)boss.getBaseNpc().getHealth() +
+                            "/" + (int)boss.getBaseNpc().getMaxHealth());
+                    }
+                }
+            }
+            default -> player.sendMessage(ChatColor.RED + "Unknown boss action: " + action);
+        }
+    }
+
     private AINpc findNPCByName(String name) {
         for (AINpc npc : npcManager.getAllNPCs()) {
             if (npc.getName().equalsIgnoreCase(name)) {
@@ -588,8 +661,11 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             completions.addAll(Arrays.asList("create", "random", "populate", "remove", "list", "info",
                     "teleport", "near", "setpersonality", "setfaction", "regenerate",
-                    "clear", "clearall", "cleardead", "respawnall", "killall"));
+                    "clear", "clearall", "cleardead", "respawnall", "killall", "boss"));
         } else if (args.length == 2) {
+            if (args[0].equalsIgnoreCase("boss")) {
+                completions.addAll(Arrays.asList("list", "spawn", "active"));
+            }
             String sub = args[0].toLowerCase();
             if (sub.equals("remove") || sub.equals("info") || sub.equals("tp") ||
                     sub.equals("teleport") || sub.equals("setpersonality") ||
@@ -608,6 +684,14 @@ public class NPCCommand implements CommandExecutor, TabCompleter {
             // Complete with faction names
             for (Faction faction : factionManager.getAllFactions()) {
                 completions.add(faction.getName());
+            }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("boss") && args[1].equalsIgnoreCase("spawn")) {
+            // Complete with boss IDs
+            BossManager bossManager = plugin.getBossManager();
+            if (bossManager != null) {
+                for (BossDefinition def : bossManager.getBossDefinitions()) {
+                    completions.add(def.id);
+                }
             }
         }
 

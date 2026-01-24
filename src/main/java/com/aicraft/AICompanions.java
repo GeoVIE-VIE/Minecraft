@@ -6,6 +6,7 @@ import com.aicraft.database.DatabaseManager;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.gui.QuestTrackerGUI;
 import com.aicraft.listeners.ChatListener;
+import com.aicraft.listeners.LegendaryItemListener;
 import com.aicraft.listeners.MobLootListener;
 import com.aicraft.listeners.NPCDamageListener;
 import com.aicraft.listeners.PlayerInteractListener;
@@ -16,6 +17,7 @@ import com.aicraft.minimap.MinimapManager;
 import com.aicraft.npcs.NPCManager;
 import com.aicraft.npcs.NPCSpawner;
 import com.aicraft.npcs.behavior.WanderingManager;
+import com.aicraft.npcs.boss.BossManager;
 import com.aicraft.npcs.building.NPCHomeBuilder;
 import com.aicraft.npcs.building.NPCSettlementDefense;
 import com.aicraft.npcs.social.NPCSocialManager;
@@ -52,6 +54,7 @@ public class AICompanions extends JavaPlugin {
     private NPCSettlementDefense settlementDefense;
     private ChatListener chatListener;
     private MinimapManager minimapManager;
+    private BossManager bossManager;
 
     @Override
     public void onEnable() {
@@ -140,6 +143,11 @@ public class AICompanions extends JavaPlugin {
             minimapManager.stop();
         }
 
+        // Stop boss manager
+        if (bossManager != null) {
+            bossManager.stop();
+        }
+
         getLogger().info("AICompanions - Goodbye!");
     }
 
@@ -182,6 +190,9 @@ public class AICompanions extends JavaPlugin {
 
         getLogger().info("Initializing minimap manager...");
         minimapManager = new MinimapManager(this, npcManager, questManager);
+
+        getLogger().info("Initializing boss manager...");
+        bossManager = new BossManager(this, npcManager);
     }
 
     private void registerCommands() {
@@ -212,9 +223,12 @@ public class AICompanions extends JavaPlugin {
         chatListener = new ChatListener(this, npcManager, aiManager, memoryManager);
         getServer().getPluginManager().registerEvents(chatListener, this);
         getServer().getPluginManager().registerEvents(new PlayerInteractListener(this, npcManager), this);
-        getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager), this);
+        getServer().getPluginManager().registerEvents(new NPCDamageListener(this, npcManager, factionManager, bossManager), this);
         getServer().getPluginManager().registerEvents(new MobLootListener(this), this);
         getServer().getPluginManager().registerEvents(new QuestProgressListener(this, questManager), this);
+
+        // Register legendary item ability listener
+        getServer().getPluginManager().registerEvents(new LegendaryItemListener(this, bossManager.getLootManager()), this);
     }
 
     private void startTasks() {
@@ -275,6 +289,11 @@ public class AICompanions extends JavaPlugin {
         // Start minimap manager
         if (getConfig().getBoolean("minimap.enabled", true)) {
             minimapManager.start();
+        }
+
+        // Start boss manager
+        if (getConfig().getBoolean("npcs.bosses.enabled", true)) {
+            bossManager.start();
         }
     }
 
@@ -340,6 +359,10 @@ public class AICompanions extends JavaPlugin {
 
     public MinimapManager getMinimapManager() {
         return minimapManager;
+    }
+
+    public BossManager getBossManager() {
+        return bossManager;
     }
 
     public boolean isDebug() {

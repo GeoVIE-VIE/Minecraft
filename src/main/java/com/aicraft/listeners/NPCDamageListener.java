@@ -4,6 +4,7 @@ import com.aicraft.AICompanions;
 import com.aicraft.factions.FactionManager;
 import com.aicraft.npcs.AINpc;
 import com.aicraft.npcs.NPCManager;
+import com.aicraft.npcs.boss.BossManager;
 import com.aicraft.npcs.loot.NPCLootManager;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Entity;
@@ -29,12 +30,14 @@ public class NPCDamageListener implements Listener {
     private final NPCManager npcManager;
     private final FactionManager factionManager;
     private final NPCLootManager lootManager;
+    private final BossManager bossManager;
 
-    public NPCDamageListener(AICompanions plugin, NPCManager npcManager, FactionManager factionManager) {
+    public NPCDamageListener(AICompanions plugin, NPCManager npcManager, FactionManager factionManager, BossManager bossManager) {
         this.plugin = plugin;
         this.npcManager = npcManager;
         this.factionManager = factionManager;
         this.lootManager = new NPCLootManager(plugin);
+        this.bossManager = bossManager;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -112,14 +115,24 @@ public class NPCDamageListener implements Listener {
         // Clear default drops
         event.getDrops().clear();
 
-        // Generate loot drops
-        if (plugin.getConfig().getBoolean("npcs.loot.enabled", true)) {
-            List<ItemStack> loot = lootManager.generateLoot(npc, killerPlayer);
-            event.getDrops().addAll(loot);
+        // Check if this is a boss - bosses have special loot handling
+        if (bossManager != null && bossManager.isBoss(npc)) {
+            // Boss death - handled by BossManager for legendary drops
+            if (killerPlayer != null) {
+                bossManager.onBossDeath(npc, killerPlayer);
+            }
+            // Boss drops are spawned by BossManager, not here
+            event.setDroppedExp(100 + (int)(Math.random() * 100)); // Bosses drop lots of XP
+        } else {
+            // Regular NPC loot
+            if (plugin.getConfig().getBoolean("npcs.loot.enabled", true)) {
+                List<ItemStack> loot = lootManager.generateLoot(npc, killerPlayer);
+                event.getDrops().addAll(loot);
 
-            // Log drops for debug
-            if (!loot.isEmpty()) {
-                plugin.debug(npc.getName() + " dropped " + loot.size() + " item(s)");
+                // Log drops for debug
+                if (!loot.isEmpty()) {
+                    plugin.debug(npc.getName() + " dropped " + loot.size() + " item(s)");
+                }
             }
         }
 
